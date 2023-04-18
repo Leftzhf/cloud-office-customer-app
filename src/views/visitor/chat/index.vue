@@ -311,10 +311,11 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
-    // 登录
+    // 登录,默认团队1
     loginNetty() {
       const data = {
-        username: getId()
+        username: getId(),
+        teamId: 1
       }
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
     },

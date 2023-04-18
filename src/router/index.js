@@ -34,6 +34,11 @@ export const constantRoutes = [
     hidden: true
   },
 
+  {
+    path: '/visitorChat',
+    component: () => import('@/views/visitor/chat/index'),
+    hidden: true
+  },
   // 登录页面
   {
     path: '/login',

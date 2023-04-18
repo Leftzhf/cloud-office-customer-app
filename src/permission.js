@@ -8,7 +8,7 @@ import getPageTitle from '@/utils/get-page-title'
 NProgress.configure({ showSpinner: false }) // NProgress Configuration
 
 // 免登录白名单
-const whiteList = ['/login', '/visitor', '/imClient']
+const whiteList = ['/login', '/visitor', '/visitorChat']
 
 // 路由跳转前
 router.beforeEach((to, from, next) => {

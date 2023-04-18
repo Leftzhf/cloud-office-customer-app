@@ -176,6 +176,7 @@ export default {
     this.listenEvent()
 
     const _this = this
+    // 如果连接建立成功
     if (window.WebSocket) {
       // socket
       this.socket = new WebSocket('ws://localhost:9999/chat')
@@ -199,7 +200,7 @@ export default {
         console.log(`连接建立 ${JSON.stringify(event)}`)
         // 心跳检测
         _this.heartCheck()
-        // socket连接成功后，登录netty
+        // socket连接成功后，发送握手数据包
         _this.loginNetty()
       }
 
@@ -333,7 +334,7 @@ export default {
       }
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
     },
-    // 发送信息 todo 这里改成protobuf格式即可
+    // 发送信息
     sendMessage() {
       console.log(`发送信息:${this.inputText}`)
       const data = {
