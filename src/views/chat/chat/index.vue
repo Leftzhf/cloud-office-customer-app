@@ -42,7 +42,11 @@
                   :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
                 >
                   <!-- 时间 -->
-                  <div class="time"><span v-text="message.createdAt" /></div>
+                  <div class="time">
+                    <span v-text="message.createdAt"/>
+                    <span v-if="message.status ===1 && isOneself(message)">未读</span>
+                    <span v-if="message.status ===2 && isOneself(message)">已读</span>
+                  </div>
                   <!-- 系统提示 -->
                   <div v-if="message.type === '10000'" class="time system">
                     <span v-html="message.content" />
@@ -56,10 +60,10 @@
                     >
 
                     <!-- 文本 -->
-                    <div v-if="message.type === '1'" v-emotion="message.content" class="text" />
+                    <div v-if="message.type == 1" v-emotion="message.content" class="text" />
 
                     <!-- 图片 -->
-                    <div v-else-if="message.type === '2'" class="text">
+                    <div v-else-if="message.type == 2" class="text">
                       <img :src="message.content" class="image" alt="聊天图片">
                     </div>
 

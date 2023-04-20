@@ -8,7 +8,7 @@ import getPageTitle from '@/utils/get-page-title'
 NProgress.configure({ showSpinner: false }) // NProgress Configuration
 
 // 免登录白名单
-const whiteList = ['/login', '/visitor', '/visitorChat']
+const whiteList = ['/login', '/visitor', '/visitorChat',"/"]
 
 // 路由跳转前
 router.beforeEach((to, from, next) => {
@@ -18,7 +18,7 @@ router.beforeEach((to, from, next) => {
   if (hasToken) {
     // 已登录且要跳转的页面是登录页
     if (to.path === '/login') {
-      next({ path: '/' })
+      next({ path: '/index' })
       NProgress.done()
     } else {
       // 判断当前用户是否已经获取用户信息（用户信息中包含了权限信息）

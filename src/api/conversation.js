@@ -11,5 +11,18 @@ export default {
       url: `/api-im/conversation/list/${userId}`,
       method: 'get'
     })
+  },
+  getListOnlineServer() {
+    return request({
+      url: `/api-im/conversation/list/online/user`,
+      method: 'get'
+    })
+  },
+  createConversation(conversationDTO) {
+    return request({
+      url: `/api-im/conversation/list/online/user`,
+      method: 'put',
+      data: conversationDTO
+    })
   }
 }

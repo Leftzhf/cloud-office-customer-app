@@ -13,7 +13,7 @@ import router from './router'
 
 import '@/icons' // icon
 import '@/permission' // permission control
-
+import 'font-awesome/css/font-awesome.min.css'
 import {} from '@/directive/emotion'
 
 /**

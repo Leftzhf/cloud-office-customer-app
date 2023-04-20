@@ -1,95 +1,122 @@
 <template>
-  <div class="chat-container">
+  <div class="common-layout">
+    <el-container>
+      <el-header>
+        <div>
+<!--          &lt;!&ndash; 数据为空 &ndash;&gt;-->
+<!--          <div v-if="messageList || messageList.length === 0" class="loading">-->
+<!--            <div style="margin-top: 300px; font-size: 16px;">-->
+<!--              <span>未查找到聊天记录</span>-->
+<!--            </div>-->
+<!--          </div>-->
 
-    <!-- 数据为空 -->
-    <div v-if="messageList && messageList.length === 0" class="loading">
-      <div style="margin-top: 300px; font-size: 16px;">
-        <span>未查找到聊天记录</span>
-      </div>
-    </div>
+<!--          &lt;!&ndash; 刚进页面第一次加载 &ndash;&gt;-->
+<!--          <div v-if="messageList && messageList.length === 0" class="loading">-->
+<!--            <div style="margin-top: 300px; font-size: 16px;">-->
+<!--              <div>加载中...</div>-->
+<!--            </div>-->
+<!--          </div>-->
 
-    <!-- 刚进页面第一次加载 -->
-    <div v-if="messageList && messageList.length === 0" class="loading">
-      <div style="margin-top: 300px; font-size: 16px;">
-        <div>加载中...</div>
-      </div>
-    </div>
-
-    <!-- 导航栏 -->
-    <div v-if="messageList && messageList.length > 0" class="title">
-      <p v-text="contact.nickname" />
-    </div>
-
-    <!-- 可上下滑滚动区域 -->
-    <div
-      id="scrollLoader-container"
-      class="container-main"
-      :style="'maxHeight:' + (maxHeight - 50) + 'px'"
-    >
-      <div v-if="topLoading" class="loading">
-        <div class="loader">加载历史记录...</div>
-      </div>
-
-      <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
-        <!-- 消息内容列表 -->
-        <div v-if="messageList && messageList.length > 0" class="message">
-          <ul>
-            <li
-              v-for="message in messageList"
-              :key="message.id"
-              :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
-            >
-              <!-- 时间 -->
-              <div class="time"><span v-text="message.createdAt" /></div>
-              <!-- 系统提示 -->
-              <div v-if="message.type === '10000'" class="time system">
-                <span v-html="message.content" />
-              </div>
-              <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
-                <!-- 头像 -->
-                <img
-                  class="avatar"
-                  :src="isOneself(message) ? user.avatar : contact.avatar"
-                  alt="头像图片"
-                >
-
-                <!-- 文本 -->
-                <div v-if="message.type === '1'" v-emotion="message.content" class="text" />
-
-                <!-- 图片 -->
-                <div v-else-if="message.type === '2'" class="text">
-                  <img :src="message.content" class="image" alt="聊天图片">
-                </div>
-
-                <!-- 其他 -->
-                <div
-                  v-else
-                  class="text"
-                  v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
-                />
-              </div>
-            </li>
-          </ul>
+          <!-- 导航栏 -->
+          <div v-if="messageList && messageList.length > 0" class="title">
+            <span >您正在与客服{{contact.nickname}}对话</span>
+          </div>
+          <div v-else class="title">
+            <span>等待转接</span>
+          </div>
+          <div class="tooltip-base-box">
+            <el-tooltip content="评分" placement="bottom" effect="light">
+              <i class="fa fa-star-half-full"  @click="showRateDialog()"/>
+            </el-tooltip>
+            <el-tooltip content="留言" placement="bottom" effect="light">
+              <i class="fa fa-envelope-o" @click="showLeaveDialog()"></i>
+            </el-tooltip>
+            <el-tooltip content="结束会话" placement="bottom" effect="light">
+              <i class="fa fa-close" @click="closeChat()"></i>
+            </el-tooltip>
+          </div>
         </div>
-      </div>
+      </el-header>
+      <el-main>
+        <!-- 可上下滑滚动区域 -->
+        <div
+          id="scrollLoader-container"
+          class="container-main"
+          :style="'maxHeight:' + (maxHeight - 50) + 'px'"
+        >
+          <div v-if="topLoading" class="loading">
+            <div class="loader">加载历史记录...</div>
+          </div>
 
-    </div>
+          <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
+            <!-- 消息内容列表 -->
+            <div v-if="messageList && messageList.length > 0" class="message">
+              <ul>
+                <li
+                  v-for="message in messageList"
+                  :key="message.id"
+                  :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
+                >
+                  <!-- 时间 -->
+                  <div class="time">
+                    <span  > {{ parseTime(message.createdAt, "{y}-{m}-{d} {h}:{i}:{s}")}}</span>
+                    <span v-if="message.status ===1 && isOneself(message) " >未读</span>
+                    <span v-if="message.status ===2 && isOneself(message)" >已读</span>
+                  </div>
+                  <!-- 系统提示 -->
+                  <div v-if="message.type === '10000'" class="time system">
+                    <span v-html="message.content" />
+                  </div>
+                  <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
+                    <!-- 头像 -->
+                    <img
+                      class="avatar"
+                      :src="isOneself(message) ? user.avatar : contact.avatar"
+                      alt="头像图片"
+                    >
 
-    <div class="input">
-      <el-row>
-        <el-col :span="20">
-          <el-input
-            v-model="inputText"
-            type="textarea"
-            placeholder="协助TA"
-            :rows="5"
-          />
-        </el-col>
-        <el-col :span="4">
-          <el-button type="primary" @click="sendMessage">发送</el-button>
-        </el-col>
-      </el-row>
-    </div>
+                    <!-- 文本 -->
+                    <div v-if="message.type == 1" v-emotion="message.content" class="text" />
+
+                    <!-- 图片 -->
+                    <div v-else-if="message.type == 2" class="text">
+                      <img :src="message.content" class="image" alt="聊天图片">
+                    </div>
+                    <!-- 其他 -->
+                    <div
+                      v-else
+                      class="text"
+                      v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
+                    />
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+        <div class="input">
+<!--          <el-row>-->
+<!--            <el-col :span="20">-->
+              <el-input
+                v-model="inputText"
+                type="textarea"
+                placeholder="协助TA"
+                :rows="5"
+                @keyup.enter.native="sendMessage"
+              >
+<!--                <template #suffix>-->
+<!--                  <el-button type="primary" @click="sendMessage">发送</el-button>-->
+<!--                </template>-->
+              </el-input>
+<!--            </el-col>-->
+<!--            <el-col :span="4">-->
+<!--              <el-button type="primary" @click="sendMessage">发送</el-button>-->
+<!--            </el-col>-->
+<!--          </el-row>-->
+        </div>
+      </el-main>
+    </el-container>
 
   </div>
 </template>
@@ -102,6 +129,7 @@ import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
 import { getId } from '@/utils/id'
+import { parseTime } from "@/utils/date";
 
 export default {
   data() {
@@ -128,7 +156,10 @@ export default {
       socket: null, // socket
       eventDispatcher: null, // 事件派发器
       interval: null, // 间隔执行定时器
-
+      logoutDialogVisible: false, // 结束会话显示
+      transferDialogVisible: false, // 转接人工dialog
+      rateDialogVisible: false, // 评价dialog
+      leaveDialogVisible: false, // 留言dialog
       contact: null, // 联系人用户对象
       user: null // 当前用户对象
     }
@@ -136,7 +167,7 @@ export default {
   computed: {
     realMinHeight() {
       return this.minHeight + 30
-    }
+    },
   },
   // 不能操作DOM
   created() {
@@ -215,6 +246,21 @@ export default {
     }
   },
   methods: {
+    parseTime(time, cFormat) {
+     return parseTime(time, cFormat)
+    },
+    /**
+     * 显示评分dialog
+     */
+    showRateDialog() {
+      this.rateDialogVisible = true
+    },
+    /**
+     * 显示留言dialog
+     */
+    showLeaveDialog() {
+      this.leaveDialogVisible = true
+    },
     // 滚动到聊天框底部
     scrollToBottom() {
       const _this = this
@@ -377,6 +423,7 @@ export default {
             }
 
             _this.listQuery.lessMessageId = _this.messageList[0].id
+            // 监听滚动，刷新聊天记录
             _this.getMessageList(topDone)
           }
         }
@@ -399,7 +446,7 @@ export default {
   }
 
   .title {
-    background: #000;
+    background: #1060b4;
     text-align: center;
     color: #fff;
     width: 100%;
