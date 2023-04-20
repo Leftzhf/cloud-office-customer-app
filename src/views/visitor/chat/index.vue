@@ -59,7 +59,7 @@
                 >
                   <!-- 时间 -->
                   <div class="time">
-                    <span  > {{ parseTime(message.createdAt, "{y}-{m}-{d} {h}:{i}:{s}")}}</span>
+                    <span > {{ parseTime(message.createdAt, "{y}-{m}-{d} {h}:{i}:{s}")}}</span>
                     <span v-if="message.status ===1 && isOneself(message) " >未读</span>
                     <span v-if="message.status ===2 && isOneself(message)" >已读</span>
                   </div>
@@ -117,7 +117,13 @@
         </div>
       </el-main>
     </el-container>
-
+    <el-dialog title="请选择客服" :visible.sync="transferDialogVisible" :close-on-press-escape="false">
+      <im-transfer ref="im_transfer" @submit="transferDialog_submit"></im-transfer>
+    </el-dialog>
+    <!-- 离线留言dialog -->
+    <el-dialog :visible.sync="leaveDialogVisible" :close-on-press-escape="false">
+      <im-leave ref="im_leave"></im-leave>
+    </el-dialog>
   </div>
 </template>
 
@@ -129,11 +135,19 @@ import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
 import { getId } from '@/utils/id'
-import { parseTime } from "@/utils/date";
-
+import { parseTime } from '@/utils/date'
+import imRate from './imRate.vue'
+import imLeave from './imLeave.vue'
+import imTransfer from './imTransfer.vue'
 export default {
+  components: {
+    imRate: imRate,
+    imLeave: imLeave,
+    imTransfer: imTransfer
+  },
   data() {
     return {
+      conversationId: 0, // 会话id
       messageList: [], // 聊天信息列表
       conversationList: [], // 会话列表
       conversation: null, // 当前选中的会话
@@ -167,7 +181,7 @@ export default {
   computed: {
     realMinHeight() {
       return this.minHeight + 30
-    },
+    }
   },
   // 不能操作DOM
   created() {
@@ -247,7 +261,7 @@ export default {
   },
   methods: {
     parseTime(time, cFormat) {
-     return parseTime(time, cFormat)
+      return parseTime(time, cFormat)
     },
     /**
      * 显示评分dialog
@@ -260,6 +274,9 @@ export default {
      */
     showLeaveDialog() {
       this.leaveDialogVisible = true
+      this.$nextTick(() => {
+        this.$refs.im_leave.init()
+      })
     },
     // 滚动到聊天框底部
     scrollToBottom() {
@@ -320,18 +337,19 @@ export default {
         console.log('连接没有开启，发送失败')
       }
     },
-    // 事件监听
+    // 事件监听器
     listenEvent() {
       const _this = this
 
-      // 登录
+      // 登录回调
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
+          // 会话id
+          _this.conversationId = packet.conversationId
           // 当前用户信息
           _this.user = packet.user
           // 联系人
           _this.contact = packet.contact
-
           _this.messageList = []
           _this.listQuery.userId = _this.user.id
           _this.listQuery.contactUserId = _this.contact.id
@@ -342,11 +360,25 @@ export default {
         }
       })
 
-      // 消息
+      // 接收消息回调
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
+        // 收到消息时添加到消息列表
         _this.messageList.push(packet)
         _this.scrollToBottom()
         console.log(`收到信息 ${JSON.stringify(packet)}`)
+      })
+      // 已读通知回调
+      this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
+        // 更新已读通知,将未读消息状态改为已读
+        packet.readedList.forEach(item => {
+          _this.messageList.forEach(message => {
+            if (message.id === item.id) {
+              message.status = 2
+            }
+          })
+        })
+        _this.scrollToBottom()
+        console.log(`对方上线已读 ${JSON.stringify(packet)}`)
       })
     },
     // 心跳检测
@@ -357,7 +389,7 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
-    // 登录,默认团队1
+    // 握手,默认团队1
     loginNetty() {
       const data = {
         username: getId(),
@@ -367,8 +399,10 @@ export default {
     },
     // 发送信息
     sendMessage() {
+      // todo 如果连接已经关闭则重新连接
       console.log(`发送信息:${this.inputText}`)
       const data = {
+        conversationId: this.conversationId,
         content: this.inputText,
         type: 1,
         toUserId: this.contact.id

@@ -11,7 +11,7 @@
       >
         <el-table-column label="会话列表">
           <template slot-scope="{row}">
-            <span>{{ getContact(row).username }}</span>
+            <span>访客{{ getContact(row).username }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -43,9 +43,9 @@
                 >
                   <!-- 时间 -->
                   <div class="time">
-                    <span v-text="message.createdAt"/>
-                    <span v-if="message.status ===1 && isOneself(message)">未读</span>
-                    <span v-if="message.status ===2 && isOneself(message)">已读</span>
+                    <span > {{ parseTime(message.createdAt, "{y}-{m}-{d} {h}:{i}:{s}")}}</span>
+                    <span v-if="message.status === 1 && isOneself(message)">未读</span>
+                    <span v-if="message.status === 2 && isOneself(message)">已读</span>
                   </div>
                   <!-- 系统提示 -->
                   <div v-if="message.type === '10000'" class="time system">
@@ -95,18 +95,19 @@
                 v-model="inputText"
                 type="textarea"
                 placeholder="协助TA"
+                @keyup.enter.native="sendMessage"
                 :rows="4"
               />
             </div>
-            <div class="input-send">
-              <el-button
-                size="small"
-                class="input-send-btn"
-                type="primary"
-                @click="sendMessage"
-              >发送
-              </el-button>
-            </div>
+<!--            <div class="input-send">-->
+<!--              <el-button-->
+<!--                size="small"-->
+<!--                class="input-send-btn"-->
+<!--                type="primary"-->
+<!--                @click="sendMessage"-->
+<!--              >发送-->
+<!--              </el-button>-->
+<!--            </div>-->
           </div>
 
         </div>
@@ -131,7 +132,7 @@ import Command from '@/utils/command'
 import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
-
+import { parseTime } from '@/utils/date'
 export default {
   data() {
     return {
@@ -195,7 +196,7 @@ export default {
         //   console.log(`接收到消息 ${JSON.stringify(packet)}`)
         // }
 
-        // 派发接收数据事件
+        // 派发接收数据事件,收到解码后的数据包
         _this.eventDispatcher.dispatchEvent(packet.command, packet)
       }
 
@@ -244,6 +245,9 @@ export default {
     }
   },
   methods: {
+    parseTime(time, cFormat) {
+      return parseTime(time, cFormat)
+    },
     // 滚动到聊天框底部
     scrollToBottom() {
       const _this = this
@@ -307,20 +311,36 @@ export default {
     listenEvent() {
       const _this = this
 
-      // 登录
+      // 登录响应
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
           // 当前用户信息
+          // 会话id
+          _this.conversationId = packet.conversationId
           _this.user = packet.user
           console.log(`登录成功 ${JSON.stringify(packet)}`)
         }
       })
 
-      // 消息
+      // 消息响应
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
         _this.messageList.push(packet)
         _this.scrollToBottom()
         console.log(`收到信息 ${JSON.stringify(packet)}`)
+      })
+      // todo 已读响应
+      // 已读通知回调
+      this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
+        // 更新已读通知,将未读消息状态改为已读
+        packet.readedList.forEach(item => {
+          _this.messageList.forEach(message => {
+            if (message.id === item.id) {
+              message.status = 2
+            }
+          })
+        })
+        _this.scrollToBottom()
+        console.log(`对方上线已读 ${JSON.stringify(packet)}`)
       })
     },
     // 心跳检测
@@ -342,6 +362,7 @@ export default {
     sendMessage() {
       console.log(`发送信息:${this.inputText}`)
       const data = {
+        conversationId: this.conversationId,
         content: this.inputText,
         type: 1,
         toUserId: this.contact.id
