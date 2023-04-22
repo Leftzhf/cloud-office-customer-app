@@ -36,19 +36,13 @@
           <span>{{ row.user.team.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="创建者" min-width="160px" align="center">
+      <el-table-column label="创建者" prop="user.username" min-width="160px" align="center"/>
+
+      <el-table-column label="内容" prop="content"  min-width="160px" align="center"/>
+      <el-table-column label="排序" prop="sort" sortable="custom" min-width="160px" align="center"/>
+      <el-table-column label="创建日期"  prop="createdAt" min-width="160px" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.user.username }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="排序" prop="sort" sortable="custom" min-width="160px" align="center">
-        <template slot-scope="{row}">
-          <span>{{ row.sort }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建日期" min-width="160px" align="center">
-        <template slot-scope="{row}">
-          <span>{{ row.createdAt }}</span>
+          <span>{{  parseTime(row.createdAt, '{y}-{m}-{d}')  }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" min-width="160px" class-name="small-padding fixed-width">
@@ -102,6 +96,7 @@ import Pagination from '@/components/Pagination'
 import faqApi from '@/api/faq'
 import E from 'wangeditor'
 import { getToken } from '@/utils/auth'
+import { parseTime } from '@/utils/date'
 
 export default {
   components: { Pagination },
@@ -142,6 +137,9 @@ export default {
     this.getList()
   },
   methods: {
+    parseTime(time, cFormat) {
+      return parseTime(time, cFormat)
+    },
     getList() {
       this.listLoading = true
       faqApi.getFaqList(this.listQuery).then((response) => {

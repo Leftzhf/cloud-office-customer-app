@@ -311,7 +311,7 @@ export default {
     listenEvent() {
       const _this = this
 
-      // 登录响应
+      // 握手响应
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
           // 当前用户信息
@@ -351,7 +351,7 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
-    // 登录
+    // 握手
     loginNetty() {
       const data = {
         username: this.$store.getters.userInfo.username

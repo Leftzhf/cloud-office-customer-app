@@ -121,11 +121,11 @@
     </el-dialog>
     <!-- 离线留言dialog -->
     <el-dialog :visible.sync="leaveDialogVisible" :close-on-press-escape="false">
-      <im-leave ref="im_leave"></im-leave>
+      <im-leave ref="im_leave" @submit="submitLeave"></im-leave>
     </el-dialog>
     <!-- 满意度dialog -->
     <el-dialog :visible.sync="rateDialogVisible" :close-on-press-escape="false">
-      <im-rate ref="im_rate"></im-rate>
+      <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
     </el-dialog>
   </div>
 </template>
@@ -136,6 +136,8 @@ import { encode, decode } from '@/utils/codec'
 import Command from '@/utils/command'
 import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
+import feedbackApi from '@/api/feedback'
+import leaveInfoApi from '@/api/leaveInfo'
 import messageApi from '@/api/message'
 import { getId } from '@/utils/id'
 import { parseTime } from '@/utils/date'
@@ -264,6 +266,28 @@ export default {
     }
   },
   methods: {
+    submitLeave(data){
+      console.log(`提交留言${JSON.stringify(data)}`)
+      data.conversationId = this.conversationId
+      data.serverId = this.contact.id
+      data.visitorId = this.user.id
+      leaveInfoApi.addLeaveInfo(data).then(response => {
+        console.log(`提交留言成功${JSON.stringify(response)}`)
+        this.leaveDialogVisible = false
+      })
+    },
+    sumbitRate(data) {
+      console.log(`提交反馈数据${JSON.stringify(data)}`)
+      //todo 调用API
+      //向这个data添加属性
+      data.conversationId = this.conversationId
+      data.serverId = this.contact.id
+      data.visitorId = this.user.id
+      feedbackApi.addFeedBcak(data).then(response => {
+        console.log(`提交反馈数据成功${JSON.stringify(response)}`)
+        this.rateDialogVisible = false
+      })
+    },
     parseTime(time, cFormat) {
       return parseTime(time, cFormat)
     },
@@ -481,7 +505,7 @@ export default {
   right: 4%;
   top: 3%;
   transform: translateY(-60%);
-  font-size: 16px;
+  font-size: 20px;
   cursor: pointer;
   color: #ffffff;
   /*right: 20px;*/

@@ -4,8 +4,8 @@
     <div v-show="!resultVisible" class="main">
       <p class="title">感谢您的反馈</p>
       <el-form class="main-form" ref="dataForm" :model="dataForm" :rules="dataForm_rules" label-position="top">
-        <el-form-item prop="phone">
-          <el-input v-model="dataForm.phone" placeholder="手机(必填)"></el-input>
+        <el-form-item prop="phoneNumber">
+          <el-input v-model="dataForm.phoneNumber" placeholder="手机(必填)"></el-input>
         </el-form-item>
         <el-form-item prop="email">
           <el-input v-model="dataForm.email" placeholder="邮箱(必填)"></el-input>
@@ -15,7 +15,7 @@
         </el-form-item>
         <el-form-item class="text-center">
           <el-button type="primary" class="submit-btn" @click="submit"
-                     :disabled="dataForm.phone.length==0 || dataForm.email.length==0"
+                     :disabled="dataForm.phoneNumber.length==0 || dataForm.email.length==0"
           >提 交
           </el-button>
         </el-form-item>
@@ -38,7 +38,7 @@ export default {
       resultVisible: false, // 离线留言已提交
       dataForm: {
         email: '',
-        phone: '',
+        phoneNumber: '',
         content: ''
       },
       dataForm_rules: {
@@ -54,7 +54,7 @@ export default {
             trigger: 'change'
           }
         ],
-        phone: [
+        phoneNumber: [
           {
             validator: function(rule, value, callback) {
               if (!/^((\d{3,4})|\d{3,4}-)?\d{7,8}$|^1[3-8]\d{9}$|^\d{5}$/.test(value)) {
@@ -91,7 +91,7 @@ export default {
       this.$data.resultVisible = false
       this.$data.dataForm = {
         email: '',
-        phone: '',
+        phoneNumber: '',
         content: ''
       }
       this.$refs.dataForm && this.$refs.dataForm.resetFields()
@@ -103,6 +103,7 @@ export default {
     submit: function() {
       var self = this
       this.$refs.dataForm.validate(function(valid) {
+        self.$emit('submit', self.dataForm)
         if (valid) {
           self.$data.resultVisible = true
         }
