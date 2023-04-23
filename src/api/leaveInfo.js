@@ -31,7 +31,7 @@ export default {
    */
   deleteLeaveInfo(leaveInfoId) {
     return request({
-      url: `/api-management/leaveInfo/delete/{leaveInfoId}`,
+      url: `/api-management/leaveInfo/delete/${leaveInfoId}`,
       method: 'delete'
     })
   },

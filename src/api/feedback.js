@@ -31,7 +31,7 @@ export default {
    */
   deleteFeedBack(feedBcakId) {
     return request({
-      url: `/api-management/delete/{feedBcakId}`,
+      url: `/api-management/feedback/delete/${feedBcakId}`,
       method: 'delete'
     })
   },
@@ -40,7 +40,7 @@ export default {
    * 修改常见问题
    * @param {Object} faqInfo 常见问题信息
    */
-  updateFaq(feedBack) {
+  updateFeedBack(feedBack) {
     return request({
       url: '/api-management/feedback/update',
       method: 'put',
