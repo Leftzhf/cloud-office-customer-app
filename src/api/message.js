@@ -12,5 +12,12 @@ export default {
       method: 'post',
       data: messageListDto
     })
+  },
+  recallMessage(messageDto) {
+    return request({
+      url: '/api-im/message/recall',
+      method: 'post',
+      data: messageDto
+    })
   }
 }

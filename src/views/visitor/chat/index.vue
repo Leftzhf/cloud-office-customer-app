@@ -24,13 +24,13 @@
             <span>您好，请稍等，客服正在赶来的路上~</span>
           </div>
           <div class="opr-wrapper">
-            <el-tooltip  content="评分" placement="bottom" effect="light">
+            <el-tooltip content="评分" placement="bottom" effect="light">
               <i class="fa fa-star-half-full" @click="showRateDialog()"/>
             </el-tooltip>
-            <el-tooltip  content="留言" placement="bottom" effect="light">
+            <el-tooltip content="留言" placement="bottom" effect="light">
               <i class="fa fa-envelope-o" @click="showLeaveDialog()"></i>
             </el-tooltip>
-            <el-tooltip  content="结束会话" placement="bottom" effect="light">
+            <el-tooltip content="结束会话" placement="bottom" effect="light">
               <i class="fa fa-close" @click="closeChat()"></i>
             </el-tooltip>
           </div>
@@ -52,18 +52,18 @@
             <div v-if="messageList && messageList.length > 0" class="message">
               <ul>
                 <li
-                  v-for="message in messageList"
+                  v-for="(message,index) in messageList"
                   :key="message.id"
                   :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
                 >
                   <!-- 时间 -->
-                  <div class="time">
+                  <div class="time" v-if="message.type !==10000">
                     <span> {{ parseTime(message.createdAt, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
                     <span v-if="message.status ===1 && isOneself(message) ">未读</span>
                     <span v-if="message.status ===2 && isOneself(message)">已读</span>
                   </div>
                   <!-- 系统提示 -->
-                  <div v-if="message.type === '10000'" class="time system">
+                  <div v-if="message.type === 10000" class="time system">
                     <span v-html="message.content"/>
                   </div>
                   <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
@@ -73,19 +73,23 @@
                       :src="isOneself(message) ? user.avatar : contact.avatar"
                       alt="头像图片"
                     >
-
                     <!-- 文本 -->
-                    <div v-if="message.type == 1" v-emotion="message.content" class="text"/>
+                    <div v-if="message.type == 1" v-emotion="message.content" class="text"
+                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                    />
 
                     <!-- 图片 -->
                     <div v-else-if="message.type == 2" class="text">
-                      <img :src="message.content" class="image" alt="聊天图片">
+                      <img :src="message.content" class="image" alt="聊天图片"
+                           @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      >
                     </div>
                     <!-- 其他 -->
                     <div
                       v-else
                       class="text"
                       v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
+                      @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message, index)"
                     />
                   </div>
                 </li>
@@ -95,8 +99,6 @@
 
         </div>
         <div class="input">
-          <!--          <el-row>-->
-          <!--            <el-col :span="20">-->
           <el-input
             v-model="inputText"
             type="textarea"
@@ -104,15 +106,7 @@
             :rows="5"
             @keyup.enter.native="sendMessage"
           >
-            <!--                <template #suffix>-->
-            <!--                  <el-button type="primary" @click="sendMessage">发送</el-button>-->
-            <!--                </template>-->
           </el-input>
-          <!--            </el-col>-->
-          <!--            <el-col :span="4">-->
-          <!--              <el-button type="primary" @click="sendMessage">发送</el-button>-->
-          <!--            </el-col>-->
-          <!--          </el-row>-->
         </div>
       </el-main>
     </el-container>
@@ -127,6 +121,14 @@
     <el-dialog :visible.sync="rateDialogVisible" :close-on-press-escape="false">
       <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
     </el-dialog>
+
+    <ContextMenu
+      v-if="contextMenuVisible"
+      :top="contextMenuPosition.top"
+      :left="contextMenuPosition.left"
+      :items="contextMenuItems"
+      @item-click="handleContextMenuItemClick"
+    />
   </div>
 </template>
 
@@ -144,15 +146,31 @@ import { parseTime } from '@/utils/date'
 import imRate from './imRate.vue'
 import imLeave from './imLeave.vue'
 import imTransfer from './imTransfer.vue'
+import ContextMenu from '@/components/common/ContextMenu'
 
 export default {
   components: {
     imRate: imRate,
     imLeave: imLeave,
-    imTransfer: imTransfer
+    imTransfer: imTransfer,
+    ContextMenu
   },
   data() {
     return {
+      recallMessageDto: {
+        messageId: 0,
+        userId: 0,
+        contactUserId: 0
+      },
+      contextMenuVisible: false,
+      contextMenuPosition: {
+        top: 0,
+        left: 0
+      },
+      contextMenuItems: ['撤回消息'],
+      selectedMessageId: -1,
+      selectedMessageIndex: -1,
+      currentContextMessage: null,
       conversationId: 0, // 会话id
       messageList: [], // 聊天信息列表
       conversationList: [], // 会话列表
@@ -195,6 +213,12 @@ export default {
   },
   // 可以操作DOM
   mounted() {
+    document.addEventListener('click', (event) => {
+      const contextMenu = document.querySelector('.context-menu')
+      if (!contextMenu.contains(event.target)) {
+        this.hideContextMenu()
+      }
+    })
     // 事件派发器
     this.eventDispatcher = new EventDispatcher()
     // 监听滚动
@@ -266,7 +290,44 @@ export default {
     }
   },
   methods: {
-    submitLeave(data){
+    hideContextMenu() {
+      // 隐藏右键菜单
+      this.contextMenuVisible = false
+    },
+    handleContextMenuItemClick(item) {
+      const _this = this
+
+      if (item === '撤回消息') {
+        // 执行撤回消息的逻辑
+        this.recallMessageDto.messageId = this.selectedMessageId
+        this.recallMessageDto.userId = this.user.id
+        this.recallMessageDto.contactUserId = this.contact.id
+        messageApi.recallMessage(this.recallMessageDto).then((res) => {
+          if (res.status === 200) {
+            _this.messageList[_this.selectedMessageIndex].content = '你撤回了一条消息'
+            _this.messageList[_this.selectedMessageIndex].type = 10000
+            // 提示用户已经撤回了消息
+            console.log(`撤回成功 ${JSON.stringify(res)}`)
+          }
+        }).catch(err => {
+          console.log(`撤回失败 ${err}`)
+        })
+      }
+      this.hideContextMenu()
+    },
+    showContextMenu($event, message, index) {
+      event.preventDefault()
+      this.selectedMessageIndex = index
+      this.selectedMessageId = message.id
+      this.currentContextMessage = message
+      console.log(`当前选中的消息id: ${message.id} index: ${index}`)
+      this.contextMenuPosition = {
+        top: event.pageY,
+        left: event.pageX
+      }
+      this.contextMenuVisible = true
+    },
+    submitLeave(data) {
       console.log(`提交留言${JSON.stringify(data)}`)
       data.conversationId = this.conversationId
       data.serverId = this.contact.id
@@ -369,7 +430,7 @@ export default {
     listenEvent() {
       const _this = this
 
-      // 登录回调
+      // 握手回调
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
           // 会话id
@@ -384,7 +445,7 @@ export default {
           _this.listQuery.lessMessageId = 0
           _this.getMessageList()
 
-          console.log(`登录成功 ${JSON.stringify(packet)}`)
+          console.log(`握手成功 ${JSON.stringify(packet)}`)
         }
       })
 
@@ -407,6 +468,18 @@ export default {
         })
         _this.scrollToBottom()
         console.log(`对方上线已读 ${JSON.stringify(packet)}`)
+      })
+      // 消息撤回通知回调
+      this.eventDispatcher.addListener(Command.RECALL_RESPONSE, packet => {
+        // TODO 更新对方撤回通知
+        _this.messageList.forEach(message => {
+          if (message.id === packet.messageId) {
+            message.type = 10000
+            message.content = '对方撤回了一条消息'
+          }
+        })
+        _this.scrollToBottom()
+        console.log(`收到撤回通知 ${JSON.stringify(packet)}`)
       })
     },
     // 心跳检测
@@ -512,10 +585,12 @@ export default {
   /*font-size: 16px;*/
   /*cursor: pointer;*/
 }
+
 .fa {
   margin-left: 10px;
 }
-.tooltip-right{
+
+.tooltip-right {
   left: 100%;
   transform: translateX(100px);
 }
