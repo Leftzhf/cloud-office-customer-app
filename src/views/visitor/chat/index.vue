@@ -316,16 +316,20 @@ export default {
       this.hideContextMenu()
     },
     showContextMenu($event, message, index) {
-      event.preventDefault()
-      this.selectedMessageIndex = index
-      this.selectedMessageId = message.id
-      this.currentContextMessage = message
-      console.log(`当前选中的消息id: ${message.id} index: ${index}`)
-      this.contextMenuPosition = {
-        top: event.pageY,
-        left: event.pageX
+      const now = new Date().getTime()
+      console.log(`createAt时间: ${message.createdAt}`)
+      if (now - message.createdAt <= 120000) {
+        event.preventDefault()
+        this.selectedMessageIndex = index
+        this.selectedMessageId = message.id
+        this.currentContextMessage = message
+        console.log(`当前选中的消息id: ${message.id} index: ${index}`)
+        this.contextMenuPosition = {
+          top: event.pageY,
+          left: event.pageX
+        }
+        this.contextMenuVisible = true
       }
-      this.contextMenuVisible = true
     },
     submitLeave(data) {
       console.log(`提交留言${JSON.stringify(data)}`)
