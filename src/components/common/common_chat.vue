@@ -16,8 +16,10 @@
                 </div>
               </div>
               <!-- 客户、客服的消息分别渲染 -->
-              <div v-else class="item"
-                   :class="{ sender: item.role == oprRoleName, receiver: item.role != oprRoleName }"
+              <div
+                v-else
+                class="item"
+                :class="{ sender: item.role == oprRoleName, receiver: item.role != oprRoleName }"
               >
                 <div class="info-wrapper" :class="item.state">
                   <!-- 头像 -->
@@ -363,9 +365,11 @@ export default {
             var file = item.getAsFile()
             let formData = new FormData()
             formData.append('uploadFile', file)
+            //todo 文件上传接口
             this.$http.uploadFile({
               url: '/upload',
               params: formData,
+              // todo 回调
               successCallback: (rs) => {
                 document.getElementById('common_chat_opr_fileUpload').value = ''
                 this.sendMsg({
@@ -506,7 +510,7 @@ export default {
 
     /**
      * 传递回调
-     */ //todo 这里实现主动转接和被动转接
+     */
     chatCallback: function(emitType, data) {
       this.$emit('chatCallback', {
         eventType: emitType,

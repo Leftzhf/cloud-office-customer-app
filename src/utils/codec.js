@@ -2,14 +2,14 @@
 const prefixLength = 12
 
 /**
-* 编码
-* 报文格式：magic4字节 + 版本1字节 + 序列化算法1字节 + 指令2字节 + 数据长度4字节 + 数据内容
-* 总长度 = 12 + 数据内容
-* @param packet 数据包
-* @returns {ArrayBuffer}
-*/
+ * 编码
+ * 报文格式：magic4字节 + 版本1字节 + 序列化算法1字节 + 指令2字节 + 数据长度4字节 + 数据内容
+ * 总长度 = 12 + 数据内容
+ * @param packet 数据包
+ * @returns {ArrayBuffer}
+ */
 export function encode(packet) {
-  const bytes = stringToBytes(JSON.stringify(packet))
+  const bytes = stringToBytes2(JSON.stringify(packet))
   const buffer = new ArrayBuffer(prefixLength + bytes.length)
   if (buffer.byteLength !== prefixLength + bytes.length) {
     console.log('编码分配内存失败，内存不足')
@@ -29,12 +29,12 @@ export function encode(packet) {
 }
 
 /**
-* 解码
-* 报文格式：magic4字节 + 版本1字节 + 序列化算法1字节 + 指令2字节 + 数据长度4字节 + 数据内容
-* 总长度 = 12 + 数据内容
-* @param buffer {ArrayBuffer}
-* @returns {JSON}
-*/
+ * 解码
+ * 报文格式：magic4字节 + 版本1字节 + 序列化算法1字节 + 指令2字节 + 数据长度4字节 + 数据内容
+ * 总长度 = 12 + 数据内容
+ * @param buffer {ArrayBuffer}
+ * @returns {JSON}
+ */
 export function decode(buffer) {
   const dataView = new DataView(buffer)
   const lenght = dataView.getInt32(8)
@@ -42,15 +42,15 @@ export function decode(buffer) {
   for (let i = prefixLength; i < lenght + prefixLength; i++) {
     bytes[i - prefixLength] = dataView.getUint8(i)
   }
-  const json = bytesToString(bytes)
+  const json = bytesToString2(bytes)
   return JSON.parse(json)
 }
 
 /**
-* 字符串转byte数组
-* @param str
-* @returns {Array}
-*/
+ * 字符串转byte数组
+ * @param str
+ * @returns {Array}
+ */
 function stringToBytes(str) {
   const bytes = []
   let c
@@ -76,18 +76,29 @@ function stringToBytes(str) {
   return bytes
 }
 
+function stringToBytes2(str) {
+  const utf8Bytes = new TextEncoder().encode(str)
+  const bytes = []
+  for (let i = 0; i < utf8Bytes.length; i++) {
+    bytes.push(utf8Bytes[i])
+  }
+  return bytes
+}
+
 /**
-* byte数组转字符串
-* @param bytes
-* @returns {string|string|string}
-*/
+ * byte数组转字符串
+ * @param bytes
+ * @returns {string|string|string}
+ */
 function bytesToString(bytes) {
   if (typeof bytes === 'string') {
     return bytes
   }
-  let str = ''; const _arr = bytes
+  let str = ''
+  const _arr = bytes
   for (let i = 0; i < _arr.length; i++) {
-    const one = _arr[i].toString(2); const v = one.match(/^1+?(?=0)/)
+    const one = _arr[i].toString(2)
+    const v = one.match(/^1+?(?=0)/)
     if (v && one.length === 8) {
       const bytesLength = v[0].length
       let store = _arr[i].toString(2).slice(7 - bytesLength)
@@ -101,4 +112,11 @@ function bytesToString(bytes) {
     }
   }
   return str
+}
+function bytesToString2(bytes) {
+  if (typeof bytes === 'string') {
+    return bytes
+  }
+  const buffer = Buffer.from(bytes)
+  return buffer.toString('utf8')
 }

@@ -39,7 +39,7 @@ export default {
    */
   deletePermission(permissionId) {
     return request({
-      url: `/permission/${permissionId}`,
+      url: `/api-usercenter/permission/${permissionId}`,
       method: 'delete'
     })
   },
@@ -50,7 +50,7 @@ export default {
    */
   updatePermission(permissionInfo) {
     return request({
-      url: '/permission',
+      url: '/api-usercenter/permission',
       method: 'put',
       data: permissionInfo
     })

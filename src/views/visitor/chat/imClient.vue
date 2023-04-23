@@ -9,7 +9,7 @@
         </div>
         <div class="opr-wrapper position-v-mid">
           <el-tooltip content="评分" placement="bottom" effect="light">
-            <i class="fa fa-star-half-full" @click="showRateDialog()"></i>
+            <i class="fa fa-star-half-full" @click="showRateDialog()"/>
           </el-tooltip>
           <el-tooltip content="留言" placement="bottom" effect="light">
             <i class="fa fa-envelope-o" @click="showLeaveDialog()"></i>
@@ -23,11 +23,15 @@
         <!-- 聊天框 -->
         <div class="item imClientChat-wrapper">
           <!-- 聊天记录 -->
-          <common-chat ref="common_chat" :chatInfoEn="chatInfoEn" :oprRoleName=" 'client'" @sendMsg="sendMsg"
-                       @chatCallback="chatCallback"
+          <common-chat
+            ref="common_chat"
+            :chatInfoEn="chatInfoEn"
+            :oprRoleName=" 'client'"
+            @sendMsg="sendMsg"
+            @chatCallback="chatCallback"
           ></common-chat>
         </div>
-        <!-- 信息区域 -->
+        <!-- 固定信息显示区域 -->
         <div class="item imClientInfo-wrapper">
           <article class="imClientInfo-notice-wrapper">
             <header class="imClientInfo-item-header">
@@ -87,6 +91,13 @@ import commonChat from '@/components/common/common_chat.vue'
 import imRate from './imRate.vue'
 import imLeave from './imLeave.vue'
 import imTransfer from './imTransfer.vue'
+import EventDispatcher from '@/utils/dispatch-event'
+import { encode, decode } from '@/utils/codec'
+import Command from '@/utils/command'
+import { createPacket } from '@/utils/packet'
+import conversationApi from '@/api/conversation'
+import messageApi from '@/api/message'
+import { getId } from '@/utils/id'
 
 export default {
   components: {
@@ -97,6 +108,7 @@ export default {
   },
   data() {
     return {
+      conversationList: [], // 会话列表
       socket: null,
       chatInfoEn: {
         chatState: 'robot', // chat状态；robot 机器人、agent 客服
@@ -135,11 +147,84 @@ export default {
       leaveDialogVisible: false // 留言dialog
     }
   },
+  created() {
+    this.getConversationList()
+  },
   computed: {},
   watch: {},
   methods: {
+    // 发送数据包
+    sendPacket(packet) {
+      if (!window.WebSocket) {
+        console.log('当前浏览器不支持WebSocket')
+        return
+      }
+
+      // 当websocket状态打开
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        // 不打印心跳包日志
+        if (packet && packet.command !== Command.HEART_BEAT_REQUEST) {
+          console.log(`发送消息 ${JSON.stringify(packet)}`)
+        }
+        this.socket.send(encode(packet))
+      } else {
+        console.log('连接没有开启，发送失败')
+      }
+    },
+    // 心跳检测
+    heartCheck() {
+      const _this = this
+      this.interval = window.setInterval(() => {
+        // console.log(`发送心跳,${new Date().toTimeString()}`)
+        _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
+      }, 5000)
+    },
+    // 登录,默认团队1
+    loginNetty() {
+      const data = {
+        username: getId(),
+        teamId: 1
+      }
+      this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
+    },
+    listenEvent() {
+      const _this = this
+
+      // 登录握手
+      this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
+        if (packet.success) {
+          // 当前用户信息
+          _this.user = packet.user
+          // 联系人
+          _this.contact = packet.contact
+
+          _this.messageList = []
+          _this.listQuery.userId = _this.user.id
+          _this.listQuery.contactUserId = _this.contact.id
+          _this.listQuery.lessMessageId = 0
+          _this.getMessageList()
+
+          console.log(`握手成功 ${JSON.stringify(packet)}`)
+        }
+      })
+
+      // 消息
+      this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
+        _this.messageList.push(packet)
+        _this.scrollToBottom()
+        console.log(`收到信息 ${JSON.stringify(packet)}`)
+      })
+    },
+    // 获取会话列表
+    getConversationList() {
+      conversationApi.getConversationList(this.$store.getters.id).then((response) => {
+        if (response.status === 200) {
+          this.conversationList = response.data
+        }
+      })
+    },
     /**
-     * 注册账号信息
+     * 注册账号信息 ,设置id和name
      */
     regClientChatEn: function() {
       this.$data.clientChatEn.clientChatId = Number.parseInt(Date.now() + Math.random())
@@ -200,7 +285,7 @@ export default {
           })
         })
 
-        // 接受服务端信息 todo
+        // 接受服务端信息
         this.$data.socket.on('SERVER_SEND_MSG', (data) => {
           data.msg.avatarUrl = this.$data.serverChatEn.avatarUrl
           this.addChatMsg(data.msg, () => {
@@ -305,13 +390,28 @@ export default {
     },
 
     /**
-     * 转接客服dialog_提交
+     * 转接客服dialog_提交 ,先创建会话，然后握手
      */
     transferDialog_submit: function(rs) {
-      this.$data.transferDialogVisible = false
-      this.$data.chatInfoEn.chatState = 'agent'
-      this.regSocket(rs.serverChatId)
-      console.log(rs.serverChatId)
+      this.transferDialogVisible = false
+      this.chatInfoEn.chatState = 'agent'
+      console.log('已选择' + rs.serverChatId)
+      // 创建会话同时创建用户
+      const data = {
+        username: getId(),
+        teamId: 1,
+        toUserId: rs.serverChatId
+      }
+      conversationApi.createConversation(data).then(res => {
+        console.log(res)
+        // this.data.socket.emit('CLIENT_ON', {
+        //   clientChatEn: this.data.clientChatEn,
+        //   serverChatId: this.data.serverChatEn.serverChatId
+        // })
+      })
+      // this.regSocket(rs.serverChatId)
+      // 发送握手请求
+      this.loginNetty()
     },
 
     /**
@@ -367,7 +467,70 @@ export default {
     }
   },
   mounted() {
-    this.regClientChatEn()
+    // this.regClientChatEn()
+
+    // 事件派发器
+    this.eventDispatcher = new EventDispatcher()
+    // 监听滚动
+    // this.listenScroll()
+    // 监听事件
+    this.listenEvent()
+
+    const _this = this
+    if (window.WebSocket) {
+      // socket
+      this.socket = new WebSocket('ws://localhost:9999/chat')
+      this.socket.binaryType = 'arraybuffer'
+
+      // 接收到消息
+      this.socket.onmessage = function(event) {
+        // 解码
+        const packet = decode(event.data)
+        // 不打印心跳包日志
+        // if (packet && packet.command !== Command.HEART_BEAT_RESPONSE) {
+        //   console.log(`接收到消息 ${JSON.stringify(packet)}`)
+        // }
+
+        // 派发接收数据事件
+        _this.eventDispatcher.dispatchEvent(packet.command, packet)
+      }
+
+      // 连接建立
+      this.socket.onopen = function(event) {
+        console.log(`连接建立 ${JSON.stringify(event)}`)
+        // 心跳检测
+        _this.heartCheck()
+        // socket连接成功后，登录netty
+        // _this.loginNetty()
+      }
+
+      // 连接关闭
+      this.socket.onclose = function(event) {
+        console.log(`连接关闭 ${JSON.stringify(event)}`)
+      }
+
+      // 连接发生错误
+      this.socket.onerror = function(event) {
+        console.log(`连接错误 ${JSON.stringify(event)}`)
+      }
+    } else {
+      console.log('当前浏览器不支持WebSocket')
+    }
+
+    // 刷新浏览器
+    window.onbeforeunload = function() {
+      if (!window.WebSocket) {
+        console.log('当前浏览器不支持WebSocket')
+        return
+      }
+
+      // 当websocket状态打开
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.close()
+      } else {
+        console.log('连接没有开启')
+      }
+    }
   }
 }
 </script>

@@ -5,11 +5,11 @@ export default {
    * 获取带分页的常见问题列表
    * @param {Object} faqPageDto 分页常见问题列表查询条件
    */
-  getFaqList(faqPageDto) {
+  getLeaveInfoList(leaveInfoPageDto) {
     return request({
-      url: '/api-management/faq/list',
+      url: '/api-management/leaveInfo/list',
       method: 'post',
-      data: faqPageDto
+      data: leaveInfoPageDto
     })
   },
 
@@ -17,11 +17,11 @@ export default {
    * 新增常见问题
    * @param {Object} faqInfo 常见问题信息
    */
-  addFaq(faqInfo) {
+  addLeaveInfo(leaveInfo) {
     return request({
-      url: '/api-management/faq',
+      url: '/api-management/leaveInfo/add',
       method: 'post',
-      data: faqInfo
+      data: leaveInfo
     })
   },
 
@@ -29,9 +29,9 @@ export default {
    * 删除常见问题
    * @param {Number} faqId 常见问题编号
    */
-  deleteFaq(faqId) {
+  deleteLeaveInfo(leaveInfoId) {
     return request({
-      url: `/api-management/faq/${faqId}`,
+      url: `/api-management/leaveInfo/delete/${leaveInfoId}`,
       method: 'delete'
     })
   },
@@ -40,11 +40,11 @@ export default {
    * 修改常见问题
    * @param {Object} faqInfo 常见问题信息
    */
-  updateFaq(faqInfo) {
+  updateLeaveInfo(leaveInfo) {
     return request({
-      url: '/api-management/faq',
+      url: '/api-management/leaveInfo/update',
       method: 'put',
-      data: faqInfo
+      data: leaveInfo
     })
   }
 }

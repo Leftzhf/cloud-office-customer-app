@@ -35,7 +35,7 @@ export const constantRoutes = [
   },
 
   {
-    path: '/visitorChat',
+    path: '/',
     component: () => import('@/views/visitor/chat/index'),
     hidden: true
   },
@@ -47,7 +47,7 @@ export const constantRoutes = [
   },
 
   {
-    path: '/',
+    path: '/index',
     component: Layout,
     redirect: 'dashboard',
     children: [

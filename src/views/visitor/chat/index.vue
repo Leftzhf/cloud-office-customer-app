@@ -1,96 +1,132 @@
 <template>
-  <div class="chat-container">
+  <div class="common-layout">
+    <el-container>
+      <el-header>
+        <div>
+          <!--          &lt;!&ndash; 数据为空 &ndash;&gt;-->
+          <!--          <div v-if="messageList || messageList.length === 0" class="loading">-->
+          <!--            <div style="margin-top: 300px; font-size: 16px;">-->
+          <!--              <span>未查找到聊天记录</span>-->
+          <!--            </div>-->
+          <!--          </div>-->
 
-    <!-- 数据为空 -->
-    <div v-if="messageList && messageList.length === 0" class="loading">
-      <div style="margin-top: 300px; font-size: 16px;">
-        <span>未查找到聊天记录</span>
-      </div>
-    </div>
-
-    <!-- 刚进页面第一次加载 -->
-    <div v-if="messageList && messageList.length === 0" class="loading">
-      <div style="margin-top: 300px; font-size: 16px;">
-        <div>加载中...</div>
-      </div>
-    </div>
-
-    <!-- 导航栏 -->
-    <div v-if="messageList && messageList.length > 0" class="title">
-      <p v-text="contact.nickname" />
-    </div>
-
-    <!-- 可上下滑滚动区域 -->
-    <div
-      id="scrollLoader-container"
-      class="container-main"
-      :style="'maxHeight:' + (maxHeight - 50) + 'px'"
-    >
-      <div v-if="topLoading" class="loading">
-        <div class="loader">加载历史记录...</div>
-      </div>
-
-      <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
-        <!-- 消息内容列表 -->
-        <div v-if="messageList && messageList.length > 0" class="message">
-          <ul>
-            <li
-              v-for="message in messageList"
-              :key="message.id"
-              :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
-            >
-              <!-- 时间 -->
-              <div class="time"><span v-text="message.createdAt" /></div>
-              <!-- 系统提示 -->
-              <div v-if="message.type === '10000'" class="time system">
-                <span v-html="message.content" />
-              </div>
-              <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
-                <!-- 头像 -->
-                <img
-                  class="avatar"
-                  :src="isOneself(message) ? user.avatar : contact.avatar"
-                  alt="头像图片"
-                >
-
-                <!-- 文本 -->
-                <div v-if="message.type === '1'" v-emotion="message.content" class="text" />
-
-                <!-- 图片 -->
-                <div v-else-if="message.type === '2'" class="text">
-                  <img :src="message.content" class="image" alt="聊天图片">
-                </div>
-
-                <!-- 其他 -->
-                <div
-                  v-else
-                  class="text"
-                  v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
-                />
-              </div>
-            </li>
-          </ul>
+          <!--          &lt;!&ndash; 刚进页面第一次加载 &ndash;&gt;-->
+          <!--          <div v-if="messageList && messageList.length === 0" class="loading">-->
+          <!--            <div style="margin-top: 300px; font-size: 16px;">-->
+          <!--              <div>加载中...</div>-->
+          <!--            </div>-->
+          <!--          </div>-->
+          <!-- 导航栏 -->
+          <div v-if="messageList && messageList.length > 0" class="title">
+            <span>客服{{ contact.nickname }}为您服务</span>
+          </div>
+          <div v-else class="title">
+            <span>您好，请稍等，客服正在赶来的路上~</span>
+          </div>
+          <div class="opr-wrapper">
+            <el-tooltip  content="评分" placement="bottom" effect="light">
+              <i class="fa fa-star-half-full" @click="showRateDialog()"/>
+            </el-tooltip>
+            <el-tooltip  content="留言" placement="bottom" effect="light">
+              <i class="fa fa-envelope-o" @click="showLeaveDialog()"></i>
+            </el-tooltip>
+            <el-tooltip  content="结束会话" placement="bottom" effect="light">
+              <i class="fa fa-close" @click="closeChat()"></i>
+            </el-tooltip>
+          </div>
         </div>
-      </div>
+      </el-header>
+      <el-main>
+        <!-- 可上下滑滚动区域 -->
+        <div
+          id="scrollLoader-container"
+          class="container-main"
+          :style="'maxHeight:' + (maxHeight - 50) + 'px'"
+        >
+          <div v-if="topLoading" class="loading">
+            <div class="loader">加载历史记录...</div>
+          </div>
 
-    </div>
+          <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
+            <!-- 消息内容列表 -->
+            <div v-if="messageList && messageList.length > 0" class="message">
+              <ul>
+                <li
+                  v-for="message in messageList"
+                  :key="message.id"
+                  :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
+                >
+                  <!-- 时间 -->
+                  <div class="time">
+                    <span> {{ parseTime(message.createdAt, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+                    <span v-if="message.status ===1 && isOneself(message) ">未读</span>
+                    <span v-if="message.status ===2 && isOneself(message)">已读</span>
+                  </div>
+                  <!-- 系统提示 -->
+                  <div v-if="message.type === '10000'" class="time system">
+                    <span v-html="message.content"/>
+                  </div>
+                  <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
+                    <!-- 头像 -->
+                    <img
+                      class="avatar"
+                      :src="isOneself(message) ? user.avatar : contact.avatar"
+                      alt="头像图片"
+                    >
 
-    <div class="input">
-      <el-row>
-        <el-col :span="20">
+                    <!-- 文本 -->
+                    <div v-if="message.type == 1" v-emotion="message.content" class="text"/>
+
+                    <!-- 图片 -->
+                    <div v-else-if="message.type == 2" class="text">
+                      <img :src="message.content" class="image" alt="聊天图片">
+                    </div>
+                    <!-- 其他 -->
+                    <div
+                      v-else
+                      class="text"
+                      v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
+                    />
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+        <div class="input">
+          <!--          <el-row>-->
+          <!--            <el-col :span="20">-->
           <el-input
             v-model="inputText"
             type="textarea"
             placeholder="协助TA"
             :rows="5"
-          />
-        </el-col>
-        <el-col :span="4">
-          <el-button type="primary" @click="sendMessage">发送</el-button>
-        </el-col>
-      </el-row>
-    </div>
-
+            @keyup.enter.native="sendMessage"
+          >
+            <!--                <template #suffix>-->
+            <!--                  <el-button type="primary" @click="sendMessage">发送</el-button>-->
+            <!--                </template>-->
+          </el-input>
+          <!--            </el-col>-->
+          <!--            <el-col :span="4">-->
+          <!--              <el-button type="primary" @click="sendMessage">发送</el-button>-->
+          <!--            </el-col>-->
+          <!--          </el-row>-->
+        </div>
+      </el-main>
+    </el-container>
+    <el-dialog title="请选择客服" :visible.sync="transferDialogVisible" :close-on-press-escape="false">
+      <im-transfer ref="im_transfer" @submit="transferDialog_submit"></im-transfer>
+    </el-dialog>
+    <!-- 离线留言dialog -->
+    <el-dialog :visible.sync="leaveDialogVisible" :close-on-press-escape="false">
+      <im-leave ref="im_leave" @submit="submitLeave"></im-leave>
+    </el-dialog>
+    <!-- 满意度dialog -->
+    <el-dialog :visible.sync="rateDialogVisible" :close-on-press-escape="false">
+      <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
+    </el-dialog>
   </div>
 </template>
 
@@ -100,12 +136,24 @@ import { encode, decode } from '@/utils/codec'
 import Command from '@/utils/command'
 import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
+import feedbackApi from '@/api/feedback'
+import leaveInfoApi from '@/api/leaveInfo'
 import messageApi from '@/api/message'
 import { getId } from '@/utils/id'
+import { parseTime } from '@/utils/date'
+import imRate from './imRate.vue'
+import imLeave from './imLeave.vue'
+import imTransfer from './imTransfer.vue'
 
 export default {
+  components: {
+    imRate: imRate,
+    imLeave: imLeave,
+    imTransfer: imTransfer
+  },
   data() {
     return {
+      conversationId: 0, // 会话id
       messageList: [], // 聊天信息列表
       conversationList: [], // 会话列表
       conversation: null, // 当前选中的会话
@@ -128,7 +176,10 @@ export default {
       socket: null, // socket
       eventDispatcher: null, // 事件派发器
       interval: null, // 间隔执行定时器
-
+      logoutDialogVisible: false, // 结束会话显示
+      transferDialogVisible: false, // 转接人工dialog
+      rateDialogVisible: false, // 评价dialog
+      leaveDialogVisible: false, // 留言dialog
       contact: null, // 联系人用户对象
       user: null // 当前用户对象
     }
@@ -215,6 +266,46 @@ export default {
     }
   },
   methods: {
+    submitLeave(data){
+      console.log(`提交留言${JSON.stringify(data)}`)
+      data.conversationId = this.conversationId
+      data.serverId = this.contact.id
+      data.visitorId = this.user.id
+      leaveInfoApi.addLeaveInfo(data).then(response => {
+        console.log(`提交留言成功${JSON.stringify(response)}`)
+        this.leaveDialogVisible = false
+      })
+    },
+    sumbitRate(data) {
+      console.log(`提交反馈数据${JSON.stringify(data)}`)
+      //todo 调用API
+      //向这个data添加属性
+      data.conversationId = this.conversationId
+      data.serverId = this.contact.id
+      data.visitorId = this.user.id
+      feedbackApi.addFeedBcak(data).then(response => {
+        console.log(`提交反馈数据成功${JSON.stringify(response)}`)
+        this.rateDialogVisible = false
+      })
+    },
+    parseTime(time, cFormat) {
+      return parseTime(time, cFormat)
+    },
+    /**
+     * 显示评分dialog
+     */
+    showRateDialog() {
+      this.rateDialogVisible = true
+    },
+    /**
+     * 显示留言dialog
+     */
+    showLeaveDialog() {
+      this.leaveDialogVisible = true
+      this.$nextTick(() => {
+        this.$refs.im_leave.init()
+      })
+    },
     // 滚动到聊天框底部
     scrollToBottom() {
       const _this = this
@@ -274,18 +365,19 @@ export default {
         console.log('连接没有开启，发送失败')
       }
     },
-    // 事件监听
+    // 事件监听器
     listenEvent() {
       const _this = this
 
-      // 登录
+      // 登录回调
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
+          // 会话id
+          _this.conversationId = packet.conversationId
           // 当前用户信息
           _this.user = packet.user
           // 联系人
           _this.contact = packet.contact
-
           _this.messageList = []
           _this.listQuery.userId = _this.user.id
           _this.listQuery.contactUserId = _this.contact.id
@@ -296,11 +388,25 @@ export default {
         }
       })
 
-      // 消息
+      // 接收消息回调
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
+        // 收到消息时添加到消息列表
         _this.messageList.push(packet)
         _this.scrollToBottom()
         console.log(`收到信息 ${JSON.stringify(packet)}`)
+      })
+      // 已读通知回调
+      this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
+        // 更新已读通知,将未读消息状态改为已读
+        packet.readedList.forEach(item => {
+          _this.messageList.forEach(message => {
+            if (message.id === item.id) {
+              message.status = 2
+            }
+          })
+        })
+        _this.scrollToBottom()
+        console.log(`对方上线已读 ${JSON.stringify(packet)}`)
       })
     },
     // 心跳检测
@@ -311,7 +417,7 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
-    // 登录,默认团队1
+    // 握手,默认团队1
     loginNetty() {
       const data = {
         username: getId(),
@@ -321,8 +427,10 @@ export default {
     },
     // 发送信息
     sendMessage() {
+      // todo 如果连接已经关闭则重新连接
       console.log(`发送信息:${this.inputText}`)
       const data = {
+        conversationId: this.conversationId,
         content: this.inputText,
         type: 1,
         toUserId: this.contact.id
@@ -377,6 +485,7 @@ export default {
             }
 
             _this.listQuery.lessMessageId = _this.messageList[0].id
+            // 监听滚动，刷新聊天记录
             _this.getMessageList(topDone)
           }
         }
@@ -387,274 +496,299 @@ export default {
 </script>
 
 <style scoped>
-  /* 消息列表 */
-  .chat-container {
-    background-color: #efefef;
-    z-index: 100;
-    overflow: hidden;
-    min-width: 300px;
-    margin: 0 auto;
-    padding: 0;
-    position: relative;
-  }
+/*.opr-wrapper .tooltip-right {*/
+/*  left: 100%;*/
+/*  transform: translateX(100px);*/
+/*}*/
+.opr-wrapper {
+  position: absolute;
+  right: 4%;
+  top: 3%;
+  transform: translateY(-60%);
+  font-size: 20px;
+  cursor: pointer;
+  color: #ffffff;
+  /*right: 20px;*/
+  /*font-size: 16px;*/
+  /*cursor: pointer;*/
+}
+.fa {
+  margin-left: 10px;
+}
+.tooltip-right{
+  left: 100%;
+  transform: translateX(100px);
+}
 
-  .title {
-    background: #000;
-    text-align: center;
-    color: #fff;
-    width: 100%;
-    height: 50px;
-    line-height: 50px;
-    font-size: 14px;
-  }
+/* 消息列表 */
+.chat-container {
+  background-color: #efefef;
+  z-index: 100;
+  overflow: hidden;
+  min-width: 300px;
+  margin: 0 auto;
+  padding: 0;
+  position: relative;
+}
 
-  .loading {
-    text-align: center;
-    color: #b0b0b0;
-    line-height: 100px;
-  }
+.title {
+  position: relative;
+  background: #1060b4;
+  text-align: center;
+  color: #fff;
+  width: 100%;
+  height: 50px;
+  line-height: 50px;
+  font-size: 14px;
+}
 
-  .message {
-    padding: 10px 15px;
-    background-color: #f5f5f5;
-  }
+.loading {
+  text-align: center;
+  color: #b0b0b0;
+  line-height: 100px;
+}
 
-  .message li {
-    margin-bottom: 15px;
+.message {
+  padding: 10px 15px;
+  background-color: #f5f5f5;
+}
+
+.message li {
+  margin-bottom: 15px;
+  left: 0;
+  position: relative;
+  display: block;
+}
+
+.message .time {
+  margin: 10px 0;
+  text-align: center;
+}
+
+.message .text {
+  display: inline-block;
+  position: relative;
+  max-width: calc(100% - 75px);
+  min-height: 35px;
+  line-height: 2.1;
+  font-size: 15px;
+  padding: 6px 10px;
+  text-align: left;
+  word-break: break-all;
+  background-color: #fff;
+  color: #000;
+  border-radius: 4px;
+  box-shadow: 0px 1px 7px -5px #000;
+}
+
+.message .avatar {
+  float: left;
+  margin: 0 10px 0 0;
+  border-radius: 3px;
+  background: #fff;
+  width: 45px;
+  height: 45px;
+}
+
+.message .time > span {
+  display: inline-block;
+  padding: 0 5px;
+  font-size: 12px;
+  color: #fff;
+  border-radius: 2px;
+  background-color: #dadada;
+}
+
+.message .system > span {
+  padding: 4px 9px;
+  text-align: left;
+}
+
+.message .text:before {
+  content: " ";
+  position: absolute;
+  top: 9px;
+  right: 100%;
+  border: 6px solid transparent;
+  border-right-color: #fff;
+}
+
+.message .main {
+  text-align: left;
+}
+
+.message .self {
+  text-align: right;
+}
+
+.message .self .avatar {
+  float: right;
+  margin: 0 0 0 10px;
+}
+
+.message .self .text {
+  background-color: #9eea6a;
+}
+
+.message .self .text:before {
+  right: inherit;
+  left: 100%;
+  border-right-color: transparent;
+  border-left-color: #9eea6a;
+}
+
+.message .image {
+  max-width: 200px;
+}
+
+img.static-emotion-gif,
+img.static-emotion {
+  vertical-align: middle !important;
+}
+
+.an-move-left {
+  left: 0;
+  animation: moveLeft 0.7s ease;
+  -webkit-animation: moveLeft 0.7s ease;
+}
+
+.an-move-right {
+  left: 0;
+  animation: moveRight 0.7s ease;
+  -webkit-animation: moveRight 0.7s ease;
+}
+
+@keyframes moveRight {
+  0% {
+    left: -20px;
+    opacity: 0;
+  }
+  100% {
     left: 0;
-    position: relative;
-    display: block;
+    opacity: 1;
   }
+}
 
-  .message .time {
-    margin: 10px 0;
-    text-align: center;
+@-webkit-keyframes moveRight {
+  0% {
+    left: -20px;
+    opacity: 0;
   }
-
-  .message .text {
-    display: inline-block;
-    position: relative;
-    max-width: calc(100% - 75px);
-    min-height: 35px;
-    line-height: 2.1;
-    font-size: 15px;
-    padding: 6px 10px;
-    text-align: left;
-    word-break: break-all;
-    background-color: #fff;
-    color: #000;
-    border-radius: 4px;
-    box-shadow: 0px 1px 7px -5px #000;
-  }
-
-  .message .avatar {
-    float: left;
-    margin: 0 10px 0 0;
-    border-radius: 3px;
-    background: #fff;
-    width: 45px;
-    height: 45px;
-  }
-
-  .message .time > span {
-    display: inline-block;
-    padding: 0 5px;
-    font-size: 12px;
-    color: #fff;
-    border-radius: 2px;
-    background-color: #dadada;
-  }
-
-  .message .system > span {
-    padding: 4px 9px;
-    text-align: left;
-  }
-
-  .message .text:before {
-    content: " ";
-    position: absolute;
-    top: 9px;
-    right: 100%;
-    border: 6px solid transparent;
-    border-right-color: #fff;
-  }
-
-  .message .main {
-    text-align: left;
-  }
-
-  .message .self {
-    text-align: right;
-  }
-
-  .message .self .avatar {
-    float: right;
-    margin: 0 0 0 10px;
-  }
-
-  .message .self .text {
-    background-color: #9eea6a;
-  }
-
-  .message .self .text:before {
-    right: inherit;
-    left: 100%;
-    border-right-color: transparent;
-    border-left-color: #9eea6a;
-  }
-
-  .message .image {
-    max-width: 200px;
-  }
-
-  img.static-emotion-gif,
-  img.static-emotion {
-    vertical-align: middle !important;
-  }
-
-  .an-move-left {
+  100% {
     left: 0;
-    animation: moveLeft 0.7s ease;
-    -webkit-animation: moveLeft 0.7s ease;
+    opacity: 1;
   }
+}
 
-  .an-move-right {
+@keyframes moveLeft {
+  0% {
+    left: 20px;
+    opacity: 0;
+  }
+  100% {
     left: 0;
-    animation: moveRight 0.7s ease;
-    -webkit-animation: moveRight 0.7s ease;
+    opacity: 1;
   }
+}
 
-  @keyframes moveRight {
-    0% {
-      left: -20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
+@-webkit-keyframes moveLeft {
+  0% {
+    left: 20px;
+    opacity: 0;
   }
-
-  @-webkit-keyframes moveRight {
-    0% {
-      left: -20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
-  }
-
-  @keyframes moveLeft {
-    0% {
-      left: 20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
-  }
-
-  @-webkit-keyframes moveLeft {
-    0% {
-      left: 20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
-  }
-
-  @media (max-width: 367px) {
-    .fzDInfo {
-      width: 82%;
-    }
-  }
-
-  /* 上下拉刷新 */
-  .container-main {
-    margin: 0 auto;
-    overflow: auto;
-    overflow-x: hidden;
-    padding: 0;
-  }
-
-  .loading {
-    width: 100%;
-    height: 40px;
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    margin: 5px 0;
-    color: #999;
-    font-size: 13px;
-  }
-
-  .loader {
-    font-size: 10px;
-    margin: 8px auto;
-    text-indent: -9999em;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #999;
-    background: -moz-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: -webkit-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: -o-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: -ms-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: linear-gradient(to right, #999 10%, rgba(255, 255, 255, 0) 42%);
-    position: relative;
-    -webkit-animation: load3 1s infinite linear;
-    animation: load3 1s infinite linear;
-  }
-
-  .loader:before {
-    width: 50%;
-    height: 50%;
-    background: #999;
-    border-radius: 100% 0 0 0;
-    position: absolute;
-    top: 0;
+  100% {
     left: 0;
-    content: "";
+    opacity: 1;
   }
+}
 
-  .loader:after {
-    background: #f5f5f5;
-    width: 72%;
-    height: 75%;
-    border-radius: 68%;
-    content: "";
-    margin: auto;
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
+@media (max-width: 367px) {
+  .fzDInfo {
+    width: 82%;
   }
+}
 
-  @-webkit-keyframes load3 {
-    0% {
-      -webkit-transform: rotate(0deg);
-      transform: rotate(0deg);
-    }
-    100% {
-      -webkit-transform: rotate(360deg);
-      transform: rotate(360deg);
-    }
-  }
+/* 上下拉刷新 */
+.container-main {
+  margin: 0 auto;
+  overflow: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
 
-  @keyframes load3 {
-    0% {
-      -webkit-transform: rotate(0deg);
-      transform: rotate(0deg);
-    }
-    100% {
-      -webkit-transform: rotate(360deg);
-      transform: rotate(360deg);
-    }
+.loading {
+  width: 100%;
+  height: 40px;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  margin: 5px 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.loader {
+  font-size: 10px;
+  margin: 8px auto;
+  text-indent: -9999em;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #999;
+  background: -moz-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: -webkit-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: -o-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: -ms-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: linear-gradient(to right, #999 10%, rgba(255, 255, 255, 0) 42%);
+  position: relative;
+  -webkit-animation: load3 1s infinite linear;
+  animation: load3 1s infinite linear;
+}
+
+.loader:before {
+  width: 50%;
+  height: 50%;
+  background: #999;
+  border-radius: 100% 0 0 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  content: "";
+}
+
+.loader:after {
+  background: #f5f5f5;
+  width: 72%;
+  height: 75%;
+  border-radius: 68%;
+  content: "";
+  margin: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+@-webkit-keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
   }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
 </style>
