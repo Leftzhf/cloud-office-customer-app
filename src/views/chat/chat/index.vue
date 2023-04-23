@@ -37,18 +37,18 @@
             <div v-if="messageList && messageList.length > 0" class="message">
               <ul>
                 <li
-                  v-for="message in messageList"
+                  v-for="(message,index) in messageList"
                   :key="message.id"
                   :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
                 >
                   <!-- 时间 -->
-                  <div class="time">
+                  <div class="time" v-if="message.type !==10000">
                     <span > {{ parseTime(message.createdAt, "{y}-{m}-{d} {h}:{i}:{s}")}}</span>
                     <span v-if="message.status === 1 && isOneself(message)">未读</span>
                     <span v-if="message.status === 2 && isOneself(message)">已读</span>
                   </div>
                   <!-- 系统提示 -->
-                  <div v-if="message.type === '10000'" class="time system">
+                  <div v-if="message.type == 10000 " class="time system">
                     <span v-html="message.content" />
                   </div>
                   <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
@@ -60,11 +60,11 @@
                     >
 
                     <!-- 文本 -->
-                    <div v-if="message.type == 1" v-emotion="message.content" class="text" />
+                    <div v-if="message.type == 1" v-emotion="message.content" class="text"  @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)" />
 
                     <!-- 图片 -->
                     <div v-else-if="message.type == 2" class="text">
-                      <img :src="message.content" class="image" alt="聊天图片">
+                      <img :src="message.content" class="image" alt="聊天图片"  @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)">
                     </div>
 
                     <!-- 其他 -->
@@ -72,6 +72,7 @@
                       v-else
                       class="text"
                       v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
+                      @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message ,index)"
                     />
                   </div>
                 </li>
@@ -121,7 +122,13 @@
     <div v-if="conversation" class="right-container">
       <div style="background: #ffffff">右边栏</div>
     </div>
-
+    <ContextMenu
+      v-if="contextMenuVisible"
+      :top="contextMenuPosition.top"
+      :left="contextMenuPosition.left"
+      :items="contextMenuItems"
+      @item-click="handleContextMenuItemClick"
+    />
   </div>
 </template>
 
@@ -133,9 +140,27 @@ import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
 import { parseTime } from '@/utils/date'
+import ContextMenu from '@/components/common/ContextMenu'
 export default {
+  components: {
+    ContextMenu
+  },
   data() {
     return {
+      recallMessageDto: {
+        messageId: 0,
+        userId: 0,
+        contactUserId: 0
+      },
+      contextMenuVisible: false,
+      contextMenuPosition: {
+        top: 0,
+        left: 0
+      },
+      contextMenuItems: ['撤回消息'],
+      selectedMessageId: -1,
+      selectedMessageIndex: -1,
+      currentContextMessage: null,
       messageList: [], // 聊天信息列表
       conversationList: [], // 会话列表
       conversation: null, // 当前选中的会话
@@ -169,6 +194,12 @@ export default {
   },
   // 可以操作DOM
   mounted() {
+    document.addEventListener('click', (event) => {
+      const contextMenu = document.querySelector('.context-menu')
+      if (!contextMenu.contains(event.target)) {
+        this.hideContextMenu()
+      }
+    })
     // 浏览器高度
     this.clientHeight = document.documentElement.clientHeight
     window.onresize = () => {
@@ -245,6 +276,47 @@ export default {
     }
   },
   methods: {
+    hideContextMenu() {
+      // 隐藏右键菜单
+      this.contextMenuVisible = false
+    },
+    handleContextMenuItemClick(item) {
+      const _this = this
+
+      if (item === '撤回消息') {
+        // 执行撤回消息的逻辑
+        this.recallMessageDto.messageId = this.selectedMessageId
+        this.recallMessageDto.userId = this.user.id
+        this.recallMessageDto.contactUserId = this.contact.id
+        messageApi.recallMessage(this.recallMessageDto).then((res) => {
+          if (res.status === 200) {
+            _this.messageList[_this.selectedMessageIndex].content = '你撤回了一条消息'
+            _this.messageList[_this.selectedMessageIndex].type = 10000
+            // 提示用户已经撤回了消息
+            console.log(`撤回成功 ${JSON.stringify(res)}`)
+          }
+        }).catch(err => {
+          console.log(`撤回失败 ${err}`)
+        })
+      }
+      this.hideContextMenu()
+    },
+    showContextMenu($event, message, index) {
+      const now = new Date().getTime()
+      console.log(`createAt时间: ${message.createdAt}`)
+      if (now - message.createdAt <= 120000) {
+        event.preventDefault()
+        this.selectedMessageIndex = index
+        this.selectedMessageId = message.id
+        this.currentContextMessage = message
+        console.log(`当前选中的消息id: ${message.id} index: ${index}`)
+        this.contextMenuPosition = {
+          top: event.pageY,
+          left: event.pageX
+        }
+        this.contextMenuVisible = true
+      }
+    },
     parseTime(time, cFormat) {
       return parseTime(time, cFormat)
     },
@@ -261,6 +333,7 @@ export default {
       conversationApi.getConversationList(this.$store.getters.id).then((response) => {
         if (response.status === 200) {
           this.conversationList = response.data
+          this.conversationId = this.conversationList[0].id
         }
       })
     },
@@ -318,7 +391,7 @@ export default {
           // 会话id
           _this.conversationId = packet.conversationId
           _this.user = packet.user
-          console.log(`登录成功 ${JSON.stringify(packet)}`)
+          console.log(`握手成功 ${JSON.stringify(packet)}`)
         }
       })
 
@@ -328,7 +401,6 @@ export default {
         _this.scrollToBottom()
         console.log(`收到信息 ${JSON.stringify(packet)}`)
       })
-      // todo 已读响应
       // 已读通知回调
       this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
         // 更新已读通知,将未读消息状态改为已读
@@ -341,6 +413,18 @@ export default {
         })
         _this.scrollToBottom()
         console.log(`对方上线已读 ${JSON.stringify(packet)}`)
+      })
+      // 消息撤回通知回调
+      this.eventDispatcher.addListener(Command.RECALL_RESPONSE, packet => {
+        // TODO 更新对方撤回通知
+        _this.messageList.forEach(message => {
+          if (message.id === packet.messageId) {
+            message.type = 10000
+            message.content = '对方撤回了一条消息'
+          }
+        })
+        _this.scrollToBottom()
+        console.log(`收到撤回通知 ${JSON.stringify(packet)}`)
       })
     },
     // 心跳检测
