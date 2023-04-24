@@ -14,15 +14,27 @@ export default {
   },
   getListOnlineServer() {
     return request({
-      url: `/api-im/conversation/list/online/user`,
+      url: `/api-im/conversation/list/online/server`,
+      method: 'get'
+    })
+  },
+  getListOnlineServerByTeamId(teamId) {
+    return request({
+      url: `/api-im/conversation/list/online/server/${teamId}`,
       method: 'get'
     })
   },
   createConversation(conversationDTO) {
     return request({
-      url: `/api-im/conversation/list/online/user`,
+      url: `/api-im/conversation/create`,
       method: 'put',
       data: conversationDTO
+    })
+  },
+  updateConversationEnd(conversationId) {
+    return request({
+      url: `/api-im/conversation/update/end/${conversationId}`,
+      method: 'post'
     })
   }
 }

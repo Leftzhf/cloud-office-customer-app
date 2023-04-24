@@ -48,7 +48,25 @@
           </div>
 
           <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
-            <!-- 消息内容列表 -->
+            <!-- 初始进入页面提示 -->
+            <div class="message">
+              <!--              握手之后就隐藏-->
+              <div v-if="this.user === null">
+                <ul>
+                  <li>
+                    <img
+                      class="avatar"
+                      :src="robotAvatar"
+                      alt="头像图片"
+                    >
+                    <div class="text">
+                      您好，请问有什么事情需要咨询吗？
+                      <el-button type="text" @click="chatCallback">转接人工客服</el-button>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
             <div v-if="messageList && messageList.length > 0" class="message">
               <ul>
                 <li
@@ -98,17 +116,30 @@
           </div>
 
         </div>
-        <div class="input">
-          <el-input
-            v-model="inputText"
-            type="textarea"
-            placeholder="协助TA"
-            :rows="5"
-            @keyup.enter.native="sendMessage"
-          >
-          </el-input>
+        <div class="input-container">
+
+          <div class="input-tool-bar">
+            <i class="el-icon-picture-outline-round"/>
+            <i class="el-icon-picture-outline"/>
+            <i class="el-icon-folder-opened"/>
+          </div>
+
+          <div class="input-content">
+            <div style="flex: 1">
+              <el-input
+                v-model="inputText"
+                type="textarea"
+                placeholder="协助TA"
+                @keyup.enter.native="sendMessage"
+                :rows="4"
+                :disabled="this.conversationStatus == 0"
+              />
+            </div>
+          </div>
+
         </div>
       </el-main>
+
     </el-container>
     <el-dialog title="请选择客服" :visible.sync="transferDialogVisible" :close-on-press-escape="false">
       <im-transfer ref="im_transfer" @submit="transferDialog_submit"></im-transfer>
@@ -122,6 +153,14 @@
       <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
     </el-dialog>
 
+<!--    加一个对话框，你确定结束对话吗？-->
+    <el-dialog title="提示" :visible.sync="conversationDialogVisible" :close-on-press-escape="false">
+      <span>确定结束对话吗？</span>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="conversationDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="endConversation">确 定</el-button>
+      </span>
+    </el-dialog>
     <ContextMenu
       v-if="contextMenuVisible"
       :top="contextMenuPosition.top"
@@ -141,7 +180,7 @@ import conversationApi from '@/api/conversation'
 import feedbackApi from '@/api/feedback'
 import leaveInfoApi from '@/api/leaveInfo'
 import messageApi from '@/api/message'
-import { getId } from '@/utils/id'
+import { getId, removeId } from '@/utils/id'
 import { parseTime } from '@/utils/date'
 import imRate from './imRate.vue'
 import imLeave from './imLeave.vue'
@@ -157,6 +196,8 @@ export default {
   },
   data() {
     return {
+      conversationDialogVisible: false,
+      teamId:'',
       recallMessageDto: {
         messageId: 0,
         userId: 0,
@@ -167,13 +208,15 @@ export default {
         top: 0,
         left: 0
       },
+      robotAvatar: 'https://leftelft-picgo-1312794111.cos.ap-guangzhou.myqcloud.com/img/im_robot_avatar.png',
       contextMenuItems: ['撤回消息'],
       selectedMessageId: -1,
       selectedMessageIndex: -1,
       currentContextMessage: null,
       conversationId: 0, // 会话id
+      conversationStatus: 1,
       messageList: [], // 聊天信息列表
-      conversationList: [], // 会话列表
+      onlineServer: [], // 在线客服列表
       conversation: null, // 当前选中的会话
       listQuery: {
         userId: 0,
@@ -215,7 +258,7 @@ export default {
   mounted() {
     document.addEventListener('click', (event) => {
       const contextMenu = document.querySelector('.context-menu')
-      if (!contextMenu.contains(event.target)) {
+      if (contextMenu && !contextMenu.contains(event.target)) {
         this.hideContextMenu()
       }
     })
@@ -251,7 +294,7 @@ export default {
         // 心跳检测
         _this.heartCheck()
         // socket连接成功后，登录netty
-        _this.loginNetty()
+        // _this.loginNetty()
       }
 
       // 连接关闭
@@ -290,6 +333,61 @@ export default {
     }
   },
   methods: {
+    endConversation() {
+      const _this = this
+      this.conversationDialogVisible = false
+      console.log(`关闭会话！`)
+      // 关闭websocket
+      this.socket.close()
+      // 调接口设置会话状态为已结束
+      conversationApi.updateConversationEnd(this.conversationId).then(res => {
+        if (res.status == 200) {
+          // 删除cookie，下次进入的时候就会生成新的访客了
+          removeId()
+          // 设置会话状态为已结束
+          _this.conversationStatus = 0
+          console.log(`会话${_this.conversationId}已结束!`)
+        }
+      })
+    },
+    closeChat() {
+      this.conversationDialogVisible = true
+    },
+    transferDialog_show() {
+      this.transferDialogVisible = true
+      this.$nextTick(() => {
+        this.$refs.im_transfer.init()
+      })
+    },
+    /**
+     * 转接客服dialog_提交 ,先创建会话，然后握手
+     */
+    transferDialog_submit(rs) {
+      this.transferDialogVisible = false
+      console.log('已选择客服id' + rs.serverChatId)
+      console.log('已选择团队id' + rs.selectTeamId)
+      // 如果选择了自动分配，则直接握手
+      if (rs.serverChatId === -1) {
+        this.teamId = rs.selectTeamId
+        this.loginNetty()
+      } else {
+        // 创建会话同时创建用户
+        const data = {
+          username: getId(),
+          teamId: 1,
+          toUserId: rs.serverChatId,
+          teamID: rs.selectTeamId
+        }
+        conversationApi.createConversation(data).then(res => {
+          console.log(`创建会话成功`)
+          // 发送握手请求
+          this.loginNetty()
+        })
+      }
+    },
+    chatCallback() {
+      this.transferDialog_show()
+    },
     hideContextMenu() {
       // 隐藏右键菜单
       this.contextMenuVisible = false
@@ -343,7 +441,6 @@ export default {
     },
     sumbitRate(data) {
       console.log(`提交反馈数据${JSON.stringify(data)}`)
-      //todo 调用API
       //向这个data添加属性
       data.conversationId = this.conversationId
       data.serverId = this.contact.id
@@ -383,9 +480,9 @@ export default {
     },
     // 获取会话列表
     getConversationList() {
-      conversationApi.getConversationList(this.$store.getters.id).then((response) => {
+      conversationApi.getListOnlineServer().then((response) => {
         if (response.status === 200) {
-          this.conversationList = response.data
+          this.onlineServer = response.data
         }
       })
     },
@@ -475,7 +572,7 @@ export default {
       })
       // 消息撤回通知回调
       this.eventDispatcher.addListener(Command.RECALL_RESPONSE, packet => {
-        // TODO 更新对方撤回通知
+        // 更新对方撤回通知
         _this.messageList.forEach(message => {
           if (message.id === packet.messageId) {
             message.type = 10000
@@ -498,7 +595,7 @@ export default {
     loginNetty() {
       const data = {
         username: getId(),
-        teamId: 1
+        teamId: this.teamId
       }
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
     },
@@ -577,6 +674,47 @@ export default {
 /*  left: 100%;*/
 /*  transform: translateX(100px);*/
 /*}*/
+.input-container {
+  height: 150px;
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  border-top: 1px solid #EBEEF5;
+}
+
+.input-tool-bar {
+  height: 50px;
+  display: flex;
+  display: -webkit-flex;
+  background-color: #ffffff;
+  align-items: center;
+}
+
+.input-content {
+  flex: 1;
+  display: flex;
+  display: -webkit-flex;
+}
+
+.input-content .input-send {
+  width: 80px;
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  align-self: flex-end;
+}
+
+.input-send .input-send-btn {
+  margin: 0 15px 15px 0;
+}
+
+.input-tool-bar i {
+  width: 35px;
+  text-align: center;
+  font-size: 1.5em;
+  color: #AAB2BC;
+}
+
 .opr-wrapper {
   position: absolute;
   right: 4%;

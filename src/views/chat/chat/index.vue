@@ -98,6 +98,7 @@
                 placeholder="协助TA"
                 @keyup.enter.native="sendMessage"
                 :rows="4"
+                :disabled="this.conversationStatus == 0"
               />
             </div>
 <!--            <div class="input-send">-->
@@ -147,6 +148,7 @@ export default {
   },
   data() {
     return {
+      conversationStatus: 1,
       recallMessageDto: {
         messageId: 0,
         userId: 0,
