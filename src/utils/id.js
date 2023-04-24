@@ -14,7 +14,9 @@ export function getId() {
   console.log(`唯一标识 ${id}`)
   return id
 }
-
+export function removeId() {
+  Cookies.remove(idKey)
+}
 /**
  * 生成不重复ID
  */

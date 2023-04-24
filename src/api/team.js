@@ -12,7 +12,12 @@ export default {
       data: teamPageDto
     })
   },
-
+  getTeamInfoList() {
+    return request({
+      url: '/api-usercenter/team/listinfo',
+      method: 'post'
+    })
+  },
   /**
    * 新增团队
    * @param {Object} teamInfo 团队信息
