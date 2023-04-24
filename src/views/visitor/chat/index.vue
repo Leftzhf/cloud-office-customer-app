@@ -132,6 +132,7 @@
                 placeholder="协助TA"
                 @keyup.enter.native="sendMessage"
                 :rows="4"
+                :disabled="this.conversationStatus == 0"
               />
             </div>
           </div>
@@ -152,6 +153,14 @@
       <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
     </el-dialog>
 
+<!--    加一个对话框，你确定结束对话吗？-->
+    <el-dialog title="提示" :visible.sync="conversationDialogVisible" :close-on-press-escape="false">
+      <span>确定结束对话吗？</span>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="conversationDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="endConversation">确 定</el-button>
+      </span>
+    </el-dialog>
     <ContextMenu
       v-if="contextMenuVisible"
       :top="contextMenuPosition.top"
@@ -187,6 +196,8 @@ export default {
   },
   data() {
     return {
+      conversationDialogVisible: false,
+      teamId:'',
       recallMessageDto: {
         messageId: 0,
         userId: 0,
@@ -203,6 +214,7 @@ export default {
       selectedMessageIndex: -1,
       currentContextMessage: null,
       conversationId: 0, // 会话id
+      conversationStatus: 1,
       messageList: [], // 聊天信息列表
       onlineServer: [], // 在线客服列表
       conversation: null, // 当前选中的会话
@@ -321,11 +333,25 @@ export default {
     }
   },
   methods: {
-    /**
-     * TODO 结束会话，删除cookie并设置会话状态为已结束
-     */
+    endConversation() {
+      const _this = this
+      this.conversationDialogVisible = false
+      console.log(`关闭会话！`)
+      // 关闭websocket
+      this.socket.close()
+      // 调接口设置会话状态为已结束
+      conversationApi.updateConversationEnd(this.conversationId).then(res => {
+        if (res.status == 200) {
+          // 删除cookie，下次进入的时候就会生成新的访客了
+          removeId()
+          // 设置会话状态为已结束
+          _this.conversationStatus = 0
+          console.log(`会话${_this.conversationId}已结束!`)
+        }
+      })
+    },
     closeChat() {
-      removeId()
+      this.conversationDialogVisible = true
     },
     transferDialog_show() {
       this.transferDialogVisible = true
@@ -342,6 +368,7 @@ export default {
       console.log('已选择团队id' + rs.selectTeamId)
       // 如果选择了自动分配，则直接握手
       if (rs.serverChatId === -1) {
+        this.teamId = rs.selectTeamId
         this.loginNetty()
       } else {
         // 创建会话同时创建用户
@@ -414,7 +441,6 @@ export default {
     },
     sumbitRate(data) {
       console.log(`提交反馈数据${JSON.stringify(data)}`)
-      //todo 调用API
       //向这个data添加属性
       data.conversationId = this.conversationId
       data.serverId = this.contact.id
@@ -546,7 +572,7 @@ export default {
       })
       // 消息撤回通知回调
       this.eventDispatcher.addListener(Command.RECALL_RESPONSE, packet => {
-        // TODO 更新对方撤回通知
+        // 更新对方撤回通知
         _this.messageList.forEach(message => {
           if (message.id === packet.messageId) {
             message.type = 10000
@@ -569,7 +595,7 @@ export default {
     loginNetty() {
       const data = {
         username: getId(),
-        teamId: 1
+        teamId: this.teamId
       }
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
     },

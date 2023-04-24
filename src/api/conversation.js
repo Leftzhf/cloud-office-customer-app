@@ -30,5 +30,11 @@ export default {
       method: 'put',
       data: conversationDTO
     })
+  },
+  updateConversationEnd(conversationId) {
+    return request({
+      url: `/api-im/conversation/update/end/${conversationId}`,
+      method: 'post'
+    })
   }
 }
