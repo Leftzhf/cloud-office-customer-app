@@ -40,7 +40,7 @@
         <!-- 可上下滑滚动区域 -->
         <div
           id="scrollLoader-container"
-          class="container-main"
+          class="container-main message"
           :style="'maxHeight:' + (maxHeight - 50) + 'px'"
         >
           <div v-if="topLoading" class="loading">
@@ -129,10 +129,10 @@
               <el-input
                 v-model="inputText"
                 type="textarea"
-                placeholder="协助TA"
+                :placeholder="this.conversationStatus === 0 ? '会话已结束' : '请输入内容'"
                 @keyup.enter.native="sendMessage"
                 :rows="4"
-                :disabled="this.conversationStatus == 0"
+                :disabled="this.conversationStatus === 0"
               />
             </div>
           </div>
@@ -153,7 +153,7 @@
       <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
     </el-dialog>
 
-<!--    加一个对话框，你确定结束对话吗？-->
+    <!--    加一个对话框，你确定结束对话吗？-->
     <el-dialog title="提示" :visible.sync="conversationDialogVisible" :close-on-press-escape="false">
       <span>确定结束对话吗？</span>
       <span slot="footer" class="dialog-footer">
@@ -197,7 +197,7 @@ export default {
   data() {
     return {
       conversationDialogVisible: false,
-      teamId:'',
+      teamId: '',
       recallMessageDto: {
         messageId: 0,
         userId: 0,
@@ -431,9 +431,9 @@ export default {
     },
     submitLeave(data) {
       console.log(`提交留言${JSON.stringify(data)}`)
-      data.conversationId = this.conversationId
-      data.serverId = this.contact.id
-      data.visitorId = this.user.id
+      data.conversationId = this.conversationId ? this.conversationId : 0
+      data.serverId = this.contact? this.contact.id : 0
+      data.visitorId = this.user? this.user.id : 0
       leaveInfoApi.addLeaveInfo(data).then(response => {
         console.log(`提交留言成功${JSON.stringify(response)}`)
         this.leaveDialogVisible = false

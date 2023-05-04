@@ -105,7 +105,7 @@ export default {
       this.$refs.dataForm.validate(function(valid) {
         self.$emit('submit', self.dataForm)
         if (valid) {
-          self.$data.resultVisible = true
+          self.resultVisible = true
         }
       })
     }
