@@ -26,7 +26,7 @@
           <span>{{ row.id }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="团队/公司名称" min-width="160px" align="center">
+      <el-table-column label="名称" min-width="160px" align="center">
         <template slot-scope="{row}">
           <span>{{ row.name }}</span>
         </template>

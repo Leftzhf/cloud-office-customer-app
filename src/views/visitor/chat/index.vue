@@ -98,9 +98,23 @@
 
                     <!-- 图片 -->
                     <div v-else-if="message.type == 2" class="text">
-                      <img :src="message.content" class="image" alt="聊天图片"
+                      <img :src="message.content"
+                           class="image"
+                           alt="聊天图片"
                            @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       >
+                    </div>
+                    <!--                    音频-->
+                    <div v-else-if="message.type == 3" class="audio-container">
+                      <audio :src="message.content" controls
+                             @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      ></audio>
+                    </div>
+                    <!--                    视频-->
+                    <div v-else-if="message.type == 4" class="video-container">
+                      <video :src="message.content" controls
+                             @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      ></video>
                     </div>
                     <!-- 其他 -->
                     <div
@@ -120,8 +134,11 @@
 
           <div class="input-tool-bar">
             <i class="el-icon-picture-outline-round"/>
-            <i class="el-icon-picture-outline"/>
-            <i class="el-icon-folder-opened"/>
+            <!--            <i class="el-icon-picture-outline"/>-->
+            <i class="el-icon-folder-opened" @click="selectFile"/>
+            <form method="post" enctype="multipart/form-data">
+              <input ref="fileInput" type="file" style="display:none" @change="onFileChange"/>
+            </form>
           </div>
 
           <div class="input-content">
@@ -130,7 +147,7 @@
                 v-model="inputText"
                 type="textarea"
                 :placeholder="this.conversationStatus === 0 ? '会话已结束' : '请输入内容'"
-                @keyup.enter.native="sendMessage"
+                @keyup.enter.native="sendMessage(1)"
                 :rows="4"
                 :disabled="this.conversationStatus === 0"
               />
@@ -186,6 +203,7 @@ import imRate from './imRate.vue'
 import imLeave from './imLeave.vue'
 import imTransfer from './imTransfer.vue'
 import ContextMenu from '@/components/common/ContextMenu'
+import COS from 'cos-js-sdk-v5'
 
 export default {
   components: {
@@ -196,6 +214,11 @@ export default {
   },
   data() {
     return {
+      url: '',
+      file: null,
+      cos: null,
+      bucket: 'customer-1312794111', // 替换为您自己的存储桶名称
+      region: 'ap-nanjing', // 替换为您自己的存储桶所在的地域
       conversationDialogVisible: false,
       teamId: '',
       recallMessageDto: {
@@ -333,6 +356,70 @@ export default {
     }
   },
   methods: {
+    // 打开文件选择对话框
+    selectFile() {
+      this.$refs.fileInput.click()
+    },
+    // 选择文件后触发
+    onFileChange(event) {
+      this.file = event.target.files[0]
+      this.uploadFile()
+    },
+    // 上传文件到腾讯云 OSS
+    async uploadFile() {
+      if (!this.file) {
+        alert('请选择要上传的文件')
+        return
+      }
+
+      // 获取文件名和扩展名
+      const fileName = this.file.name
+      const extensionName = fileName.substring(fileName.lastIndexOf('.') + 1)
+
+      // 设置文件名为当前时间戳和扩展名的组合
+      const timestamp = new Date().getTime()
+      const newFileName = `${timestamp}.${extensionName}`
+
+      // 调用 COS SDK 上传文件
+      this.cos.putObject({
+        Bucket: this.bucket,
+        Region: this.region,
+        Key: newFileName,
+        Body: this.file
+      }, (error, data) => {
+        if (error) {
+          console.error(error)
+          alert('文件上传失败，请重试')
+          return
+        }
+
+        // 获取文件访问地址
+        const url = this.cos.getObjectUrl({
+          Bucket: this.bucket,
+          Region: this.region,
+          Key: newFileName,
+          Expires: 3600 // 设置 URL 有效期为 1 小时
+        })
+        alert('文件上传成功')
+        console.log(`文件访问地址: ${url}`)
+        this.url = url
+        let contentType
+        if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].indexOf(extensionName) >= 0) {
+          contentType = '2'
+        } else if (['mp4', 'avi', 'mov', 'wmv', 'mkv', 'flv'].indexOf(extensionName) >= 0) {
+          contentType = '4'
+        } else if (['mp3', 'wav', 'wma', 'ogg', 'aac', 'flac'].indexOf(extensionName) >= 0) {
+          contentType = '3'
+        } else {
+          contentType = '5'
+        }
+        this.sendMessageOSS(contentType)
+      })
+    },
+    createWebSocket() {
+      this.socket = new WebSocket('ws://localhost:9999/chat')
+      this.socket.binaryType = 'arraybuffer'
+    },
     endConversation() {
       const _this = this
       this.conversationDialogVisible = false
@@ -432,8 +519,8 @@ export default {
     submitLeave(data) {
       console.log(`提交留言${JSON.stringify(data)}`)
       data.conversationId = this.conversationId ? this.conversationId : 0
-      data.serverId = this.contact? this.contact.id : 0
-      data.visitorId = this.user? this.user.id : 0
+      data.serverId = this.contact ? this.contact.id : 0
+      data.visitorId = this.user ? this.user.id : 0
       leaveInfoApi.addLeaveInfo(data).then(response => {
         console.log(`提交留言成功${JSON.stringify(response)}`)
         this.leaveDialogVisible = false
@@ -441,7 +528,7 @@ export default {
     },
     sumbitRate(data) {
       console.log(`提交反馈数据${JSON.stringify(data)}`)
-      //向这个data添加属性
+      // 向这个data添加属性
       data.conversationId = this.conversationId
       data.serverId = this.contact.id
       data.visitorId = this.user.id
@@ -547,6 +634,11 @@ export default {
           _this.getMessageList()
 
           console.log(`握手成功 ${JSON.stringify(packet)}`)
+          // 允许发送文件，初始化腾讯云 OSS 对象存储 SDK
+          this.cos = new COS({
+            SecretId: 'AKID0rVwMcfU5bu1uZ0DRtFOL7jAPRIyRoDV', // 替换为您自己的 SecretId
+            SecretKey: 'EG6mQtBJEwbAZo02qbDhGl6GDxeBVcev' // 替换为您自己的 SecretKey
+          })
         }
       })
 
@@ -599,14 +691,33 @@ export default {
       }
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
     },
+    sendMessageOSS(type) {
+      // 如果连接已经关闭则重新连接
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this.createWebSocket()
+      }
+      console.log(`发送信息:${this.url}`)
+      const data = {
+        conversationId: this.conversationId,
+        content: this.url,
+        type: type,
+        toUserId: this.contact.id
+      }
+      this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
+      // 清空文本框
+      this.inputText = ''
+    },
     // 发送信息
-    sendMessage() {
-      // todo 如果连接已经关闭则重新连接
+    sendMessage(type) {
+      // 如果连接已经关闭则重新连接
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this.createWebSocket()
+      }
       console.log(`发送信息:${this.inputText}`)
       const data = {
         conversationId: this.conversationId,
         content: this.inputText,
-        type: 1,
+        type: type,
         toUserId: this.contact.id
       }
       this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
@@ -674,6 +785,29 @@ export default {
 /*  left: 100%;*/
 /*  transform: translateX(100px);*/
 /*}*/
+.audio-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+audio {
+  width: 100%;
+  height: 50px;
+}
+
+.video-container {
+  max-width: 100%;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .input-container {
   height: 150px;
   display: flex;

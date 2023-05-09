@@ -22,7 +22,7 @@
       <div v-if="conversation" class="chat-container">
         <!-- 导航栏 -->
         <div class="chat-nav">
-          <span v-text="contact.username" />
+          <span>访客 {{contact.username}} </span>
         </div>
 
         <!-- 可上下滑滚动区域 -->
@@ -66,7 +66,18 @@
                     <div v-else-if="message.type == 2" class="text">
                       <img :src="message.content" class="image" alt="聊天图片"  @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)">
                     </div>
-
+                    <!--音频-->
+                    <div v-else-if="message.type == 3" class="audio-container">
+                      <audio :src="message.content" controls
+                             @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      ></audio>
+                    </div>
+                    <!--视频-->
+                    <div v-else-if="message.type == 4" class="video-container">
+                      <video :src="message.content" controls
+                             @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      ></video>
+                    </div>
                     <!-- 其他 -->
                     <div
                       v-else
@@ -85,9 +96,11 @@
         <div class="input-container">
 
           <div class="input-tool-bar">
-            <i class="el-icon-picture-outline-round" />
-            <i class="el-icon-picture-outline" />
-            <i class="el-icon-folder-opened" />
+            <!--            <i class="el-icon-picture-outline"/>-->
+            <i class="el-icon-folder-opened" @click="selectFile"/>
+            <form method="post" enctype="multipart/form-data">
+              <input ref="fileInput" type="file" style="display:none" @change="onFileChange"/>
+            </form>
           </div>
 
           <div class="input-content">
@@ -142,12 +155,18 @@ import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
 import { parseTime } from '@/utils/date'
 import ContextMenu from '@/components/common/ContextMenu'
+import COS from 'cos-js-sdk-v5'
 export default {
   components: {
     ContextMenu
   },
   data() {
     return {
+      url: '',
+      file: null,
+      cos: null,
+      bucket: 'customer-1312794111', // 替换为您自己的存储桶名称
+      region: 'ap-nanjing', // 替换为您自己的存储桶所在的地域
       conversationStatus: 1,
       recallMessageDto: {
         messageId: 0,
@@ -196,6 +215,11 @@ export default {
   },
   // 可以操作DOM
   mounted() {
+    // 允许发送文件，初始化腾讯云 OSS 对象存储 SDK
+    this.cos = new COS({
+      SecretId: 'AKID0rVwMcfU5bu1uZ0DRtFOL7jAPRIyRoDV', // 替换为您自己的 SecretId
+      SecretKey: 'EG6mQtBJEwbAZo02qbDhGl6GDxeBVcev' // 替换为您自己的 SecretKey
+    })
     document.addEventListener('click', (event) => {
       const contextMenu = document.querySelector('.context-menu')
       if (!contextMenu.contains(event.target)) {
@@ -278,6 +302,86 @@ export default {
     }
   },
   methods: {
+    sendMessageOSS(type) {
+      // 如果连接已经关闭则重新连接
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this.createWebSocket()
+      }
+      console.log(`发送信息:${this.url}`)
+      const data = {
+        conversationId: this.conversationId,
+        content: this.url,
+        type: type,
+        toUserId: this.contact.id
+      }
+      this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
+      // 清空文本框
+      this.inputText = ''
+    },
+    // 打开文件选择对话框
+    selectFile() {
+      this.$refs.fileInput.click()
+    },
+    // 选择文件后触发
+    onFileChange(event) {
+      this.file = event.target.files[0]
+      this.uploadFile()
+    },
+    // 上传文件到腾讯云 OSS
+    async uploadFile() {
+      if (!this.file) {
+        alert('请选择要上传的文件')
+        return
+      }
+
+      // 获取文件名和扩展名
+      const fileName = this.file.name
+      const extensionName = fileName.substring(fileName.lastIndexOf('.') + 1)
+
+      // 设置文件名为当前时间戳和扩展名的组合
+      const timestamp = new Date().getTime()
+      const newFileName = `${timestamp}.${extensionName}`
+
+      // 调用 COS SDK 上传文件
+      this.cos.putObject({
+        Bucket: this.bucket,
+        Region: this.region,
+        Key: newFileName,
+        Body: this.file
+      }, (error, data) => {
+        if (error) {
+          console.error(error)
+          alert('文件上传失败，请重试')
+          return
+        }
+
+        // 获取文件访问地址
+        const url = this.cos.getObjectUrl({
+          Bucket: this.bucket,
+          Region: this.region,
+          Key: newFileName,
+          Expires: 3600 // 设置 URL 有效期为 1 小时
+        })
+        alert('文件上传成功')
+        console.log(`文件访问地址: ${url}`)
+        this.url = url
+        let contentType
+        if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].indexOf(extensionName) >= 0) {
+          contentType = '2'
+        } else if (['mp4', 'avi', 'mov', 'wmv', 'mkv', 'flv'].indexOf(extensionName) >= 0) {
+          contentType = '4'
+        } else if (['mp3', 'wav', 'wma', 'ogg', 'aac', 'flac'].indexOf(extensionName) >= 0) {
+          contentType = '3'
+        } else {
+          contentType = '5'
+        }
+        this.sendMessageOSS(contentType)
+      })
+    },
+    createWebSocket() {
+      this.socket = new WebSocket('ws://localhost:9999/chat')
+      this.socket.binaryType = 'arraybuffer'
+    },
     hideContextMenu() {
       // 隐藏右键菜单
       this.contextMenuVisible = false
@@ -446,6 +550,10 @@ export default {
     },
     // 发送信息
     sendMessage() {
+      // 如果连接已经关闭则重新连接
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this.createWebSocket()
+      }
       console.log(`发送信息:${this.inputText}`)
       const data = {
         conversationId: this.conversationId,
@@ -542,6 +650,28 @@ export default {
 </style>
 
 <style scoped>
+.audio-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+audio {
+  width: 100%;
+  height: 50px;
+}
+
+.video-container {
+  max-width: 100%;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
   .app-container {
     background-color: #ffffff;
     z-index: 100;
