@@ -1,7 +1,7 @@
 import Vue from 'vue'
 
 import 'normalize.css/normalize.css' // A modern alternative to CSS resets
-
+import { Picker } from 'emoji-mart'
 import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 
@@ -27,7 +27,7 @@ import {} from '@/directive/emotion'
 
 // set ElementUI lang to EN
 Vue.use(ElementUI)
-
+Vue.component('picker', Picker)
 Vue.config.productionTip = false
 
 new Vue({

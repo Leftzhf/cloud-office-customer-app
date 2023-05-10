@@ -28,10 +28,10 @@
               <i class="fa fa-star-half-full" @click="showRateDialog()"/>
             </el-tooltip>
             <el-tooltip content="留言" placement="bottom" effect="light">
-              <i class="fa fa-envelope-o" @click="showLeaveDialog()"></i>
+              <i class="fa fa-envelope-o" @click="showLeaveDialog()"/>
             </el-tooltip>
             <el-tooltip content="结束会话" placement="bottom" effect="light">
-              <i class="fa fa-close" @click="closeChat()"></i>
+              <i class="fa fa-close" @click="closeChat()"/>
             </el-tooltip>
           </div>
         </div>
@@ -46,7 +46,6 @@
           <div v-if="topLoading" class="loading">
             <div class="loader">加载历史记录...</div>
           </div>
-
           <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
             <!-- 初始进入页面提示 -->
             <div class="message">
@@ -75,7 +74,7 @@
                   :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
                 >
                   <!-- 时间 -->
-                  <div class="time" v-if="message.type !==10000">
+                  <div v-if="message.type !==10000" class="time">
                     <span> {{ parseTime(message.createdAt, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
                     <span v-if="message.status ===1 && isOneself(message) ">未读</span>
                     <span v-if="message.status ===2 && isOneself(message)">已读</span>
@@ -92,82 +91,89 @@
                       alt="头像图片"
                     >
                     <!-- 文本 -->
-                    <div v-if="message.type == 1" v-emotion="message.content" class="text"
-                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                    <div
+                      v-if="message.type == 1"
+                      v-emotion="message.content"
+                      class="text"
+                      @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                     />
 
                     <!-- 图片 -->
                     <div v-else-if="message.type == 2" class="text">
-                      <img :src="message.content"
-                           class="image"
-                           alt="聊天图片"
-                           @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      <img
+                        :src="message.content"
+                        class="image"
+                        alt="聊天图片"
+                        @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       >
                     </div>
-                    <!--                    音频-->
+                    <!--音频-->
                     <div v-else-if="message.type == 3" class="audio-container">
-                      <audio :src="message.content" controls
-                             @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
-                      ></audio>
+                      <audio
+                        :src="message.content"
+                        controls
+                        @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      />
                     </div>
-                    <!--                    视频-->
+                    <!--视频-->
                     <div v-else-if="message.type == 4" class="video-container">
-                      <video :src="message.content" controls
-                             @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
-                      ></video>
+                      <video
+                        :src="message.content"
+                        controls
+                        @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      />
                     </div>
                     <!-- 其他 -->
                     <div
                       v-else
                       class="text"
-                      v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
                       @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message, index)"
+                      v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
                     />
                   </div>
                 </li>
               </ul>
             </div>
           </div>
-
         </div>
         <div class="input-container">
-
           <div class="input-tool-bar">
-            <i class="el-icon-picture-outline-round"/>
+            <i class="el-icon-picture-outline-round" @click="showPicker = !showPicker"/>
+            <div v-show="showPicker" class="picker">
+              <Picker @select="onEmojiSelect"/>
+            </div>
             <!--            <i class="el-icon-picture-outline"/>-->
             <i class="el-icon-folder-opened" @click="selectFile"/>
             <form method="post" enctype="multipart/form-data">
-              <input ref="fileInput" type="file" style="display:none" @change="onFileChange"/>
+              <input ref="fileInput" type="file" style="display:none" @change="onFileChange">
             </form>
           </div>
-
           <div class="input-content">
             <div style="flex: 1">
               <el-input
                 v-model="inputText"
                 type="textarea"
                 :placeholder="this.conversationStatus === 0 ? '会话已结束' : '请输入内容'"
-                @keyup.enter.native="sendMessage(1)"
                 :rows="4"
                 :disabled="this.conversationStatus === 0"
+                @keyup.enter.native="sendMessage(1)"
               />
             </div>
           </div>
-
         </div>
       </el-main>
 
     </el-container>
     <el-dialog title="请选择客服" :visible.sync="transferDialogVisible" :close-on-press-escape="false">
-      <im-transfer ref="im_transfer" @submit="transferDialog_submit"></im-transfer>
+      <im-transfer ref="im_transfer" @submit="transferDialog_submit"/>
     </el-dialog>
     <!-- 离线留言dialog -->
     <el-dialog :visible.sync="leaveDialogVisible" :close-on-press-escape="false">
-      <im-leave ref="im_leave" @submit="submitLeave"></im-leave>
+      <im-leave ref="im_leave" @submit="submitLeave"/>
     </el-dialog>
     <!-- 满意度dialog -->
     <el-dialog :visible.sync="rateDialogVisible" :close-on-press-escape="false">
-      <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
+      <im-rate ref="im_rate" @submit="sumbitRate"/>
     </el-dialog>
 
     <!--    加一个对话框，你确定结束对话吗？-->
@@ -204,16 +210,20 @@ import imLeave from './imLeave.vue'
 import imTransfer from './imTransfer.vue'
 import ContextMenu from '@/components/common/ContextMenu'
 import COS from 'cos-js-sdk-v5'
-
+import { Picker } from 'emoji-mart-vue'
+import { Encrypt, Decrypt } from '@/utils/AesEncryptUtil'
 export default {
   components: {
     imRate: imRate,
     imLeave: imLeave,
     imTransfer: imTransfer,
-    ContextMenu
+    ContextMenu,
+    Picker
   },
   data() {
     return {
+      secretKey: '',
+      showPicker: false,
       url: '',
       file: null,
       cos: null,
@@ -356,6 +366,15 @@ export default {
     }
   },
   methods: {
+    onEmojiSelect(emoji) {
+      // 在选择器中选择emoji后，会触发这个方法
+      // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
+      // 将emoji转换为字符串，插入到聊天框中发送
+      const emojiStr = emoji.native// 或者使用emoji-mart库提供的emoji转换函数
+      //加入到输入框
+      this.inputText += emojiStr
+      this.showPicker = false
+    },
     // 打开文件选择对话框
     selectFile() {
       this.$refs.fileInput.click()
@@ -394,15 +413,25 @@ export default {
         }
 
         // 获取文件访问地址
+        const self = this
         const url = this.cos.getObjectUrl({
           Bucket: this.bucket,
           Region: this.region,
           Key: newFileName,
-          Expires: 3600 // 设置 URL 有效期为 1 小时
+          Sign: false
+        }, function(err, data) {
+          if (err) return console.log(err)
+          /* url为对象访问 url */
+          var url = data.Url
+          /* 复制 downloadUrl 的值到浏览器打开会自动触发下载 */
+          var downloadUrl =
+            url +
+            (url.indexOf('?') > -1 ? '&' : '?') +
+            'response-content-disposition=attachment' // 补充强制下载的参数
+          console.log(`新的文件访问地址: ${url}`, JSON.stringify(data, null, 2))
+          self.url = url
         })
         alert('文件上传成功')
-        console.log(`文件访问地址: ${url}`)
-        this.url = url
         let contentType
         if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].indexOf(extensionName) >= 0) {
           contentType = '2'
@@ -632,9 +661,10 @@ export default {
           _this.listQuery.contactUserId = _this.contact.id
           _this.listQuery.lessMessageId = 0
           _this.getMessageList()
-
-          console.log(`握手成功 ${JSON.stringify(packet)}`)
-          // 允许发送文件，初始化腾讯云 OSS 对象存储 SDK
+          // 获取密钥
+          this.secretKey = packet.secretKey
+          console.log(`握手成功\n握手响应内容：${JSON.stringify(packet)}，\n获取密钥 ${this.secretKey}`)
+          // 允许发送文件，初始化腾讯云 OSS 对象存储 SDK todo 后期改成云端下发
           this.cos = new COS({
             SecretId: 'AKID0rVwMcfU5bu1uZ0DRtFOL7jAPRIyRoDV', // 替换为您自己的 SecretId
             SecretKey: 'EG6mQtBJEwbAZo02qbDhGl6GDxeBVcev' // 替换为您自己的 SecretKey
@@ -644,6 +674,9 @@ export default {
 
       // 接收消息回调
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
+        // 通过密钥解密消息内容数据
+        let decrypt = Decrypt(packet.content, _this.secretKey)
+        packet.content = decrypt
         // 收到消息时添加到消息列表
         _this.messageList.push(packet)
         _this.scrollToBottom()
@@ -785,6 +818,12 @@ export default {
 /*  left: 100%;*/
 /*  transform: translateX(100px);*/
 /*}*/
+
+.picker {
+  /*transform: translateX(-240px);*/
+  /*transform: translateY(-60%);*/
+}
+
 .audio-container {
   display: flex;
   align-items: center;
