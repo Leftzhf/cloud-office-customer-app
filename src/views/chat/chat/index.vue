@@ -22,7 +22,7 @@
       <div v-if="conversation" class="chat-container">
         <!-- 导航栏 -->
         <div class="chat-nav">
-          <span>访客 {{contact.username}} </span>
+          <span>访客 {{ contact.username }} </span>
         </div>
 
         <!-- 可上下滑滚动区域 -->
@@ -43,13 +43,13 @@
                 >
                   <!-- 时间 -->
                   <div class="time" v-if="message.type !==10000">
-                    <span > {{ parseTime(message.createdAt, "{y}-{m}-{d} {h}:{i}:{s}")}}</span>
+                    <span> {{ parseTime(message.createdAt, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
                     <span v-if="message.status === 1 && isOneself(message)">未读</span>
                     <span v-if="message.status === 2 && isOneself(message)">已读</span>
                   </div>
                   <!-- 系统提示 -->
                   <div v-if="message.type == 10000 " class="time system">
-                    <span v-html="message.content" />
+                    <span v-html="message.content"/>
                   </div>
                   <div v-else :class="'main' + (isOneself(message) ? ' self' : '')">
                     <!-- 头像 -->
@@ -60,11 +60,15 @@
                     >
 
                     <!-- 文本 -->
-                    <div v-if="message.type == 1" v-emotion="message.content" class="text"  @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)" />
+                    <div v-if="message.type == 1" v-emotion="message.content" class="text"
+                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                    />
 
                     <!-- 图片 -->
                     <div v-else-if="message.type == 2" class="text">
-                      <img :src="message.content" class="image" alt="聊天图片"  @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)">
+                      <img :src="message.content" class="image" alt="聊天图片"
+                           @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      >
                     </div>
                     <!--音频-->
                     <div v-else-if="message.type == 3" class="audio-container">
@@ -96,6 +100,10 @@
         <div class="input-container">
 
           <div class="input-tool-bar">
+            <i class="el-icon-picture-outline-round" @click="showPicker = !showPicker"/>
+            <div v-show="showPicker" class="picker">
+              <Picker @select="onEmojiSelect"/>
+            </div>
             <!--            <i class="el-icon-picture-outline"/>-->
             <i class="el-icon-folder-opened" @click="selectFile"/>
             <form method="post" enctype="multipart/form-data">
@@ -114,15 +122,15 @@
                 :disabled="this.conversationStatus == 0"
               />
             </div>
-<!--            <div class="input-send">-->
-<!--              <el-button-->
-<!--                size="small"-->
-<!--                class="input-send-btn"-->
-<!--                type="primary"-->
-<!--                @click="sendMessage"-->
-<!--              >发送-->
-<!--              </el-button>-->
-<!--            </div>-->
+            <!--            <div class="input-send">-->
+            <!--              <el-button-->
+            <!--                size="small"-->
+            <!--                class="input-send-btn"-->
+            <!--                type="primary"-->
+            <!--                @click="sendMessage"-->
+            <!--              >发送-->
+            <!--              </el-button>-->
+            <!--            </div>-->
           </div>
 
         </div>
@@ -148,7 +156,7 @@
 
 <script>
 import EventDispatcher from '@/utils/dispatch-event'
-import { encode, decode } from '@/utils/codec'
+import { decode, encode } from '@/utils/codec'
 import Command from '@/utils/command'
 import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
@@ -156,12 +164,18 @@ import messageApi from '@/api/message'
 import { parseTime } from '@/utils/date'
 import ContextMenu from '@/components/common/ContextMenu'
 import COS from 'cos-js-sdk-v5'
+import { Decrypt, Encrypt } from '@/utils/AesEncryptUtil'
+import { Picker } from 'emoji-mart-vue'
+
 export default {
   components: {
-    ContextMenu
+    ContextMenu,
+    Picker
   },
   data() {
     return {
+      visitorKey: '',
+      showPicker: false,
       url: '',
       file: null,
       cos: null,
@@ -185,6 +199,7 @@ export default {
       messageList: [], // 聊天信息列表
       conversationList: [], // 会话列表
       conversation: null, // 当前选中的会话
+      // 选择的会话的联系人id
       listQuery: {
         userId: 0,
         contactUserId: 0,
@@ -222,7 +237,7 @@ export default {
     })
     document.addEventListener('click', (event) => {
       const contextMenu = document.querySelector('.context-menu')
-      if (!contextMenu.contains(event.target)) {
+      if (contextMenu && !contextMenu.contains(event.target)) {
         this.hideContextMenu()
       }
     })
@@ -257,7 +272,7 @@ export default {
         _this.eventDispatcher.dispatchEvent(packet.command, packet)
       }
 
-      // 连接建立
+      // 连接建立后自动进行一次握手和开启心跳检测
       this.socket.onopen = function(event) {
         console.log(`连接建立 ${JSON.stringify(event)}`)
         // 心跳检测
@@ -302,6 +317,25 @@ export default {
     }
   },
   methods: {
+    // 二次握手,交换密钥
+    secondHandShakeHandler() {
+      const data = {
+        sessionId: this.conversation.id,
+        visitorId: this.contact.id,
+        serverId: this.user.id
+      }
+      this.sendPacket(createPacket(data, Command.SECOND_HAND_SHAKE_REQUEST))
+      console.log(`发送二次握手数据包 ${JSON.stringify(data)}`)
+    },
+    onEmojiSelect(emoji) {
+      // 在选择器中选择emoji后，会触发这个方法
+      // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
+      // 将emoji转换为字符串，插入到聊天框中发送
+      const emojiStr = emoji.native// 或者使用emoji-mart库提供的emoji转换函数
+      // 加入到输入框
+      this.inputText += emojiStr
+      this.showPicker = false
+    },
     sendMessageOSS(type) {
       // 如果连接已经关闭则重新连接
       if (this.socket.readyState === WebSocket.CLOSED) {
@@ -439,7 +473,6 @@ export default {
       conversationApi.getConversationList(this.$store.getters.id).then((response) => {
         if (response.status === 200) {
           this.conversationList = response.data
-          this.conversationId = this.conversationList[0].id
         }
       })
     },
@@ -463,7 +496,7 @@ export default {
               _this.scrollToBottom()
             }
           }
-          console.log(response.data)
+          // console.log(response.data)
           _this.isUpperLaoding = false
         }
       })
@@ -479,36 +512,60 @@ export default {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         // 不打印心跳包日志
         if (packet && packet.command !== Command.HEART_BEAT_REQUEST) {
-          console.log(`发送消息 ${JSON.stringify(packet)}`)
+          console.log(`发送数据包 ${JSON.stringify(packet)}`)
         }
         this.socket.send(encode(packet))
       } else {
-        console.log('连接没有开启，发送失败')
+        console.log('连接没有开启，数据包发送失败')
       }
     },
     // 事件监听
     listenEvent() {
       const _this = this
 
-      // 握手响应
+      // 第一次握手响应
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
           // 当前用户信息
-          // 会话id
-          _this.conversationId = packet.conversationId
           _this.user = packet.user
           console.log(`握手成功 ${JSON.stringify(packet)}`)
+          // 获取自己的身份密钥
+          this.secretKey = packet.secretKey
+          console.log(`握手成功\n握手响应内容：${JSON.stringify(packet)}，\n获取密钥 ${this.secretKey}`)
         }
       })
 
+      // 二次握手响应，获取访客的密钥存到sessionStorage里
+      this.eventDispatcher.addListener(Command.SECOND_HAND_SHAKE_RESPONSE, packet => {
+        // if (packet.success) {
+        console.log(`二次握手成功\n二次握手响应内容：${JSON.stringify(packet)},保存为访客${this.contact.id}密钥`)
+        sessionStorage.setItem(this.contact.id, packet.visitorKey)
+        // }
+      })
       // 消息响应
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
+        if (packet.fromUserId !== _this.contact.id && packet.fromUserId !== _this.user.id) {
+          return
+        }
+        // if (!this.isOneself(packet)) {
+        // 如果对方发送的，则用对方的密钥解密
+        // 从sessionStorage中获取访客的密钥，并通过访客的密钥解密消息内容数据
+        //   const visitorKeyNow = sessionStorage.getItem(this.contact.id)
+        //   let decrypt = Decrypt(packet.content, visitorKeyNow)
+        //   packet.content = decrypt
+        // } else {
+        // 如果是自己发送的，则用自己的密钥解密
+        packet.content = Decrypt(packet.content, _this.secretKey)
+        // }
         _this.messageList.push(packet)
         _this.scrollToBottom()
         console.log(`收到信息 ${JSON.stringify(packet)}`)
       })
       // 已读通知回调
       this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
+        if (packet.contactUserId !== _this.contact.id) {
+          return
+        }
         // 更新已读通知,将未读消息状态改为已读
         packet.readedList.forEach(item => {
           _this.messageList.forEach(message => {
@@ -522,7 +579,10 @@ export default {
       })
       // 消息撤回通知回调
       this.eventDispatcher.addListener(Command.RECALL_RESPONSE, packet => {
-        // TODO 更新对方撤回通知
+        if (packet.contactUserId !== _this.contact.id) {
+          return
+        }
+        // 更新对方撤回通知
         _this.messageList.forEach(message => {
           if (message.id === packet.messageId) {
             message.type = 10000
@@ -550,17 +610,19 @@ export default {
     },
     // 发送信息
     sendMessage() {
-      // 如果连接已经关闭则重新连接
+      // 如果连接已经关闭则重新连接，需要重新握手
       if (this.socket.readyState === WebSocket.CLOSED) {
+        console.log(`连接已关闭，正在重新握手`)
         this.createWebSocket()
       }
-      console.log(`发送信息:${this.inputText}`)
+      console.log(`发送信息:${this.inputText},使用密钥${this.secretKey}加密`)
       const data = {
         conversationId: this.conversationId,
-        content: this.inputText,
+        content: Encrypt(this.inputText, this.secretKey),
         type: 1,
         toUserId: this.contact.id
       }
+      console.log(`发送信息加密后:${JSON.stringify(data.content)}`)
       this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
       // 清空文本框
       this.inputText = ''
@@ -573,13 +635,17 @@ export default {
     handleConversation(conversation) {
       this.conversation = conversation
       this.contact = this.getContact(conversation)
-
       this.messageList = []
       this.listQuery.userId = this.user.id
       this.listQuery.contactUserId = this.contact.id
       this.listQuery.lessMessageId = 0
 
       this.getMessageList()
+      // 判断SessionStorage中是否存在键为选中的访客id的值
+      if (!(this.contact.id in sessionStorage)) {
+        // 键不存在，则进行二次握手获取对方密钥
+        this.secondHandShakeHandler()
+      }
     },
     // 根据会话获取联系人
     getContact(conversation) {
@@ -604,7 +670,7 @@ export default {
         const scrollContainer = _this.$el.querySelector('#scrollLoader-container')
 
         scrollContainer.onscroll = function() {
-          console.log(`滚动中 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+          // console.log(`滚动中 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
           if (scrollContainer.scrollTop <= 0 && !_this.stopTopLoading) {
             if (_this.topLoading) {
               return
@@ -633,20 +699,27 @@ export default {
 </script>
 
 <style rel="stylesheet/scss" lang="scss" scoped>
->>> .el-input-number .el-input__inner.el-textarea__inner {
-    border: 0;
-    resize: none;
-  }
+> > > .el-input-number .el-input__inner.el-textarea__inner {
+  border: 0;
+  resize: none;
+}
 
-  ul {
-    display: block;
-    list-style-type: disc;
-    margin-block-start: 1em;
-    margin-block-end: 1em;
-    margin-inline-start: 0;
-    margin-inline-end: 0;
-    padding-inline-start: 0;
-  }
+.picker {
+  position: absolute;
+  top: -420px;
+  /*transform: translateX(-240px);*/
+  /*transform: translateY(-60%);*/
+}
+
+ul {
+  display: block;
+  list-style-type: disc;
+  margin-block-start: 1em;
+  margin-block-end: 1em;
+  margin-inline-start: 0;
+  margin-inline-end: 0;
+  padding-inline-start: 0;
+}
 </style>
 
 <style scoped>
@@ -672,337 +745,339 @@ video {
   height: auto;
   display: block;
 }
-  .app-container {
-    background-color: #ffffff;
-    z-index: 100;
-    overflow: hidden;
-    min-width: 400px;
-    margin: 0 auto;
-    padding: 0;
-    display: flex;
-    display: -webkit-flex;
-    flex-direction: row;
-  }
 
-  .left-container {
-    width: 250px;
-  }
+.app-container {
+  background-color: #ffffff;
+  z-index: 100;
+  overflow: hidden;
+  min-width: 400px;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: row;
+}
 
-  .center-container {
-    flex: 1;
-  }
+.left-container {
+  width: 250px;
+}
 
-  .right-container {
-    width: 250px;
-  }
+.center-container {
+  flex: 1;
+}
 
-  .chat-container {
-    display: flex;
-    display: -webkit-flex;
-    flex-direction: column;
-    height: 100%;
-    border-left: 1px solid #EBEEF5;
-    border-right: 1px solid #EBEEF5;
-  }
+.right-container {
+  width: 250px;
+}
 
-  .chat-nav {
-    text-align: center;
-    width: 100%;
-    height: 50px;
-    line-height: 50px;
-    font-size: 14px;
-    border-bottom: 1px solid #EBEEF5;
-  }
+.chat-container {
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  height: 100%;
+  border-left: 1px solid #EBEEF5;
+  border-right: 1px solid #EBEEF5;
+}
 
-  .input-container {
-    height: 150px;
-    display: flex;
-    display: -webkit-flex;
-    flex-direction: column;
-    border-top: 1px solid #EBEEF5;
-  }
+.chat-nav {
+  text-align: center;
+  width: 100%;
+  height: 50px;
+  line-height: 50px;
+  font-size: 14px;
+  border-bottom: 1px solid #EBEEF5;
+}
 
-  .input-tool-bar {
-    height: 50px;
-    display: flex;
-    display: -webkit-flex;
-    background-color: #ffffff;
-    align-items: center;
-  }
+.input-container {
+  height: 150px;
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  border-top: 1px solid #EBEEF5;
+}
 
-  .input-content {
-    flex: 1;
-    display: flex;
-    display: -webkit-flex;
-  }
+.input-tool-bar {
+  position: relative;
+  height: 50px;
+  display: flex;
+  display: -webkit-flex;
+  background-color: #ffffff;
+  align-items: center;
+}
 
-  .input-content .input-send {
-    width: 80px;
-    display: flex;
-    display: -webkit-flex;
-    flex-direction: column;
-    align-self: flex-end;
-  }
+.input-content {
+  flex: 1;
+  display: flex;
+  display: -webkit-flex;
+}
 
-  .input-send .input-send-btn {
-    margin: 0 15px 15px 0;
-  }
+.input-content .input-send {
+  width: 80px;
+  display: flex;
+  display: -webkit-flex;
+  flex-direction: column;
+  align-self: flex-end;
+}
 
-  .input-tool-bar i {
-    width: 35px;
-    text-align: center;
-    font-size: 1.5em;
-    color: #AAB2BC;
-  }
+.input-send .input-send-btn {
+  margin: 0 15px 15px 0;
+}
 
-  .message {
-    padding: 10px 15px;
-  }
+.input-tool-bar i {
+  width: 35px;
+  text-align: center;
+  font-size: 1.5em;
+  color: #AAB2BC;
+}
 
-  .message li {
-    margin-bottom: 15px;
+.message {
+  padding: 10px 15px;
+}
+
+.message li {
+  margin-bottom: 15px;
+  left: 0;
+  position: relative;
+  display: block;
+}
+
+.message .time {
+  margin: 10px 0;
+  text-align: center;
+}
+
+.message .text {
+  display: inline-block;
+  position: relative;
+  max-width: calc(100% - 75px);
+  min-height: 35px;
+  line-height: 2.1;
+  font-size: 15px;
+  padding: 6px 10px;
+  text-align: left;
+  word-break: break-all;
+  background-color: #fff;
+  color: #000;
+  border-radius: 4px;
+  box-shadow: 0 1px 7px -5px #000;
+}
+
+.message .avatar {
+  float: left;
+  margin: 0 10px 0 0;
+  border-radius: 3px;
+  background: #fff;
+  width: 45px;
+  height: 45px;
+}
+
+.message .time > span {
+  display: inline-block;
+  padding: 0 5px;
+  font-size: 12px;
+  color: #fff;
+  border-radius: 2px;
+  background-color: #dadada;
+}
+
+.message .system > span {
+  padding: 4px 9px;
+  text-align: left;
+}
+
+.message .text:before {
+  content: " ";
+  position: absolute;
+  top: 9px;
+  right: 100%;
+  border: 6px solid transparent;
+  border-right-color: #fff;
+}
+
+.message .main {
+  text-align: left;
+}
+
+.message .self {
+  text-align: right;
+}
+
+.message .self .avatar {
+  float: right;
+  margin: 0 0 0 10px;
+}
+
+.message .self .text {
+  background-color: #9eea6a;
+}
+
+.message .self .text:before {
+  right: inherit;
+  left: 100%;
+  border-right-color: transparent;
+  border-left-color: #9eea6a;
+}
+
+.message .image {
+  max-width: 200px;
+}
+
+img.static-emotion-gif,
+img.static-emotion {
+  vertical-align: middle !important;
+}
+
+.an-move-left {
+  left: 0;
+  animation: moveLeft 0.7s ease;
+  -webkit-animation: moveLeft 0.7s ease;
+}
+
+.an-move-right {
+  left: 0;
+  animation: moveRight 0.7s ease;
+  -webkit-animation: moveRight 0.7s ease;
+}
+
+@keyframes moveRight {
+  0% {
+    left: -20px;
+    opacity: 0;
+  }
+  100% {
     left: 0;
-    position: relative;
-    display: block;
+    opacity: 1;
   }
+}
 
-  .message .time {
-    margin: 10px 0;
-    text-align: center;
+@-webkit-keyframes moveRight {
+  0% {
+    left: -20px;
+    opacity: 0;
   }
-
-  .message .text {
-    display: inline-block;
-    position: relative;
-    max-width: calc(100% - 75px);
-    min-height: 35px;
-    line-height: 2.1;
-    font-size: 15px;
-    padding: 6px 10px;
-    text-align: left;
-    word-break: break-all;
-    background-color: #fff;
-    color: #000;
-    border-radius: 4px;
-    box-shadow: 0 1px 7px -5px #000;
-  }
-
-  .message .avatar {
-    float: left;
-    margin: 0 10px 0 0;
-    border-radius: 3px;
-    background: #fff;
-    width: 45px;
-    height: 45px;
-  }
-
-  .message .time > span {
-    display: inline-block;
-    padding: 0 5px;
-    font-size: 12px;
-    color: #fff;
-    border-radius: 2px;
-    background-color: #dadada;
-  }
-
-  .message .system > span {
-    padding: 4px 9px;
-    text-align: left;
-  }
-
-  .message .text:before {
-    content: " ";
-    position: absolute;
-    top: 9px;
-    right: 100%;
-    border: 6px solid transparent;
-    border-right-color: #fff;
-  }
-
-  .message .main {
-    text-align: left;
-  }
-
-  .message .self {
-    text-align: right;
-  }
-
-  .message .self .avatar {
-    float: right;
-    margin: 0 0 0 10px;
-  }
-
-  .message .self .text {
-    background-color: #9eea6a;
-  }
-
-  .message .self .text:before {
-    right: inherit;
-    left: 100%;
-    border-right-color: transparent;
-    border-left-color: #9eea6a;
-  }
-
-  .message .image {
-    max-width: 200px;
-  }
-
-  img.static-emotion-gif,
-  img.static-emotion {
-    vertical-align: middle !important;
-  }
-
-  .an-move-left {
+  100% {
     left: 0;
-    animation: moveLeft 0.7s ease;
-    -webkit-animation: moveLeft 0.7s ease;
+    opacity: 1;
   }
+}
 
-  .an-move-right {
+@keyframes moveLeft {
+  0% {
+    left: 20px;
+    opacity: 0;
+  }
+  100% {
     left: 0;
-    animation: moveRight 0.7s ease;
-    -webkit-animation: moveRight 0.7s ease;
+    opacity: 1;
   }
+}
 
-  @keyframes moveRight {
-    0% {
-      left: -20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
+@-webkit-keyframes moveLeft {
+  0% {
+    left: 20px;
+    opacity: 0;
   }
-
-  @-webkit-keyframes moveRight {
-    0% {
-      left: -20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
-  }
-
-  @keyframes moveLeft {
-    0% {
-      left: 20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
-  }
-
-  @-webkit-keyframes moveLeft {
-    0% {
-      left: 20px;
-      opacity: 0;
-    }
-    100% {
-      left: 0;
-      opacity: 1;
-    }
-  }
-
-  @media (max-width: 367px) {
-    .fzDInfo {
-      width: 82%;
-    }
-  }
-
-  .scroll-container {
-    margin: 0 auto;
-    overflow: auto;
-    overflow-x: hidden;
-    padding: 0;
-    flex: 1;
-    width: 100%;
-  }
-
-  .message-container {
-    overflow-x: hidden;
-    flex: 1;
-    width: 100%;
-  }
-
-  .loading {
-    width: 100%;
-    height: 40px;
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    margin: 5px 0;
-    font-size: 13px;
-    color: #b0b0b0;
-    line-height: 100px;
-  }
-
-  .loader {
-    font-size: 10px;
-    margin: 8px auto;
-    text-indent: -9999em;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #999;
-    background: -moz-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: -webkit-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: -o-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: -ms-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
-    background: linear-gradient(to right, #999 10%, rgba(255, 255, 255, 0) 42%);
-    position: relative;
-    -webkit-animation: load3 1s infinite linear;
-    animation: load3 1s infinite linear;
-  }
-
-  .loader:before {
-    width: 50%;
-    height: 50%;
-    background: #999;
-    border-radius: 100% 0 0 0;
-    position: absolute;
-    top: 0;
+  100% {
     left: 0;
-    content: "";
+    opacity: 1;
   }
+}
 
-  .loader:after {
-    background: #f5f5f5;
-    width: 72%;
-    height: 75%;
-    border-radius: 68%;
-    content: "";
-    margin: auto;
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
+@media (max-width: 367px) {
+  .fzDInfo {
+    width: 82%;
   }
+}
 
-  @-webkit-keyframes load3 {
-    0% {
-      -webkit-transform: rotate(0deg);
-      transform: rotate(0deg);
-    }
-    100% {
-      -webkit-transform: rotate(360deg);
-      transform: rotate(360deg);
-    }
-  }
+.scroll-container {
+  margin: 0 auto;
+  overflow: auto;
+  overflow-x: hidden;
+  padding: 0;
+  flex: 1;
+  width: 100%;
+}
 
-  @keyframes load3 {
-    0% {
-      -webkit-transform: rotate(0deg);
-      transform: rotate(0deg);
-    }
-    100% {
-      -webkit-transform: rotate(360deg);
-      transform: rotate(360deg);
-    }
+.message-container {
+  overflow-x: hidden;
+  flex: 1;
+  width: 100%;
+}
+
+.loading {
+  width: 100%;
+  height: 40px;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  margin: 5px 0;
+  font-size: 13px;
+  color: #b0b0b0;
+  line-height: 100px;
+}
+
+.loader {
+  font-size: 10px;
+  margin: 8px auto;
+  text-indent: -9999em;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #999;
+  background: -moz-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: -webkit-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: -o-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: -ms-linear-gradient(left, #999 10%, rgba(255, 255, 255, 0) 42%);
+  background: linear-gradient(to right, #999 10%, rgba(255, 255, 255, 0) 42%);
+  position: relative;
+  -webkit-animation: load3 1s infinite linear;
+  animation: load3 1s infinite linear;
+}
+
+.loader:before {
+  width: 50%;
+  height: 50%;
+  background: #999;
+  border-radius: 100% 0 0 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  content: "";
+}
+
+.loader:after {
+  background: #f5f5f5;
+  width: 72%;
+  height: 75%;
+  border-radius: 68%;
+  content: "";
+  margin: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+@-webkit-keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
   }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes load3 {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
 </style>

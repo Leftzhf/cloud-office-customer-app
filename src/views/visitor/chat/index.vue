@@ -196,7 +196,7 @@
 
 <script>
 import EventDispatcher from '@/utils/dispatch-event'
-import { encode, decode } from '@/utils/codec'
+import { decode, encode } from '@/utils/codec'
 import Command from '@/utils/command'
 import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
@@ -211,7 +211,9 @@ import imTransfer from './imTransfer.vue'
 import ContextMenu from '@/components/common/ContextMenu'
 import COS from 'cos-js-sdk-v5'
 import { Picker } from 'emoji-mart-vue'
-import { Encrypt, Decrypt } from '@/utils/AesEncryptUtil'
+import { Decrypt, Encrypt } from '@/utils/AesEncryptUtil'
+import Cookies from 'js-cookie'
+
 export default {
   components: {
     imRate: imRate,
@@ -222,6 +224,7 @@ export default {
   },
   data() {
     return {
+      serverKey: '',
       secretKey: '',
       showPicker: false,
       url: '',
@@ -303,6 +306,7 @@ export default {
     this.listenEvent()
 
     const _this = this
+    // 开启websocket
     if (window.WebSocket) {
       // socket
       this.socket = new WebSocket('ws://localhost:9999/chat')
@@ -328,6 +332,7 @@ export default {
         _this.heartCheck()
         // socket连接成功后，登录netty
         // _this.loginNetty()
+        _this.remenberMe()
       }
 
       // 连接关闭
@@ -366,12 +371,29 @@ export default {
     }
   },
   methods: {
+    remenberMe() {
+      if (Cookies.get('socket_visitor_id') !== undefined) {
+        // cookie存在
+        this.loginNetty()
+      }
+    },
+    // 二次握手,交换密钥
+    secondHandShakeHandler() {
+      const data = {
+        sessionId: this.conversationId,
+        visitorId: this.user.id,
+        serverId: this.contact.id
+      }
+      this.sendPacket(createPacket(data, Command.SECOND_HAND_SHAKE_REQUEST))
+      // 打印发送第二次握手请求
+      console.log(`发送第二次握手请求 ${JSON.stringify(data)}`)
+    },
     onEmojiSelect(emoji) {
       // 在选择器中选择emoji后，会触发这个方法
       // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
       // 将emoji转换为字符串，插入到聊天框中发送
       const emojiStr = emoji.native// 或者使用emoji-mart库提供的emoji转换函数
-      //加入到输入框
+      // 加入到输入框
       this.inputText += emojiStr
       this.showPicker = false
     },
@@ -448,6 +470,8 @@ export default {
     createWebSocket() {
       this.socket = new WebSocket('ws://localhost:9999/chat')
       this.socket.binaryType = 'arraybuffer'
+      // 重新握手，获取新的会话密钥
+      this.loginNetty()
     },
     endConversation() {
       const _this = this
@@ -489,8 +513,7 @@ export default {
       } else {
         // 创建会话同时创建用户
         const data = {
-          username: getId(),
-          teamId: 1,
+          fromUserName: getId(),
           toUserId: rs.serverChatId,
           teamID: rs.selectTeamId
         }
@@ -589,9 +612,9 @@ export default {
       const _this = this
       setTimeout(() => {
         const scrollContainer = _this.$el.querySelector('#scrollLoader-container')
-        console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+        // console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
         scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight
-        console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+        // console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
       }, 50)
     },
     // 获取会话列表
@@ -620,7 +643,7 @@ export default {
               _this.scrollToBottom()
             }
           }
-          console.log(response.data)
+          // console.log(response.data)
           _this.isUpperLaoding = false
         }
       })
@@ -636,7 +659,7 @@ export default {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         // 不打印心跳包日志
         if (packet && packet.command !== Command.HEART_BEAT_REQUEST) {
-          console.log(`发送消息 ${JSON.stringify(packet)}`)
+          console.log(`发送数据包 ${JSON.stringify(packet)}`)
         }
         this.socket.send(encode(packet))
       } else {
@@ -663,24 +686,39 @@ export default {
           _this.getMessageList()
           // 获取密钥
           this.secretKey = packet.secretKey
-          console.log(`握手成功\n握手响应内容：${JSON.stringify(packet)}，\n获取密钥 ${this.secretKey}`)
+          console.log(`第一次握手成功\n握手响应内容：${JSON.stringify(packet)}，\n获取身份密钥 ${this.secretKey}`)
           // 允许发送文件，初始化腾讯云 OSS 对象存储 SDK todo 后期改成云端下发
           this.cos = new COS({
             SecretId: 'AKID0rVwMcfU5bu1uZ0DRtFOL7jAPRIyRoDV', // 替换为您自己的 SecretId
             SecretKey: 'EG6mQtBJEwbAZo02qbDhGl6GDxeBVcev' // 替换为您自己的 SecretKey
           })
+          // 进行第二次握手
+          _this.secondHandShakeHandler()
         }
       })
 
+      // 第二次握手回调
+      this.eventDispatcher.addListener(Command.SECOND_HAND_SHAKE_RESPONSE, packet => {
+        this.serverKey = packet.serverKey
+        console.log(`第二次握手成功\n二次握手响应内容：${JSON.stringify(packet)}`)
+        console.log(`第二次握手成功\n绑定密钥：客服${_this.serverKey},访客${_this.secretKey}`)
+      })
       // 接收消息回调
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
-        // 通过密钥解密消息内容数据
-        let decrypt = Decrypt(packet.content, _this.secretKey)
-        packet.content = decrypt
+        console.log(`收到信息解码前 ${JSON.stringify(packet)}`)
+        // if (!this.isOneself(packet)) {
+        // console.log(`使用密钥 ${_this.serverKey}解密`)
+        // 如果对方发送的，则用对方的密钥解密
+        //   packet.content = Decrypt(packet.content, _this.serverKey)
+        // } else {
+        //   console.log(`使用密钥 ${_this.secretKey}解密`)
+        // 如果是自己发送的，则用自己的密钥解密
+        packet.content = Decrypt(packet.content, _this.secretKey)
+        // }
         // 收到消息时添加到消息列表
         _this.messageList.push(packet)
         _this.scrollToBottom()
-        console.log(`收到信息 ${JSON.stringify(packet)}`)
+        console.log(`收到信息解码后 ${JSON.stringify(packet)}`)
       })
       // 已读通知回调
       this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
@@ -716,13 +754,15 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
-    // 握手,默认团队1
+    // 第一次握手
     loginNetty() {
       const data = {
         username: getId(),
         teamId: this.teamId
       }
+      // 打印发送第一次握手
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
+      console.log(`发送第一次握手:${JSON.stringify(data)}`)
     },
     sendMessageOSS(type) {
       // 如果连接已经关闭则重新连接
@@ -746,13 +786,15 @@ export default {
       if (this.socket.readyState === WebSocket.CLOSED) {
         this.createWebSocket()
       }
-      console.log(`发送信息:${this.inputText}`)
+      console.log(`发送信息:${this.inputText}，采用密钥${this.secretKey}加密`)
+      // 用自己的密钥加密消息内容数据
       const data = {
         conversationId: this.conversationId,
-        content: this.inputText,
+        content: Encrypt(this.inputText, this.secretKey),
         type: type,
         toUserId: this.contact.id
       }
+      console.log(`发送信息加密后:${JSON.stringify(data.content)}`)
       this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
       // 清空文本框
       this.inputText = ''
@@ -784,7 +826,7 @@ export default {
         const scrollContainer = _this.$el.querySelector('#scrollLoader-container')
 
         scrollContainer.onscroll = function() {
-          console.log(`滚动中 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+          // console.log(`滚动中 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
           if (scrollContainer.scrollTop <= 0 && !_this.stopTopLoading) {
             if (_this.topLoading) {
               return
@@ -820,6 +862,8 @@ export default {
 /*}*/
 
 .picker {
+  position: absolute;
+  top: -420px;
   /*transform: translateX(-240px);*/
   /*transform: translateY(-60%);*/
 }
@@ -856,6 +900,7 @@ video {
 }
 
 .input-tool-bar {
+  position: relative;
   height: 50px;
   display: flex;
   display: -webkit-flex;
