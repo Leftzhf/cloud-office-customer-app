@@ -28,10 +28,10 @@
               <i class="fa fa-star-half-full" @click="showRateDialog()"/>
             </el-tooltip>
             <el-tooltip content="留言" placement="bottom" effect="light">
-              <i class="fa fa-envelope-o" @click="showLeaveDialog()"></i>
+              <i class="fa fa-envelope-o" @click="showLeaveDialog()"/>
             </el-tooltip>
             <el-tooltip content="结束会话" placement="bottom" effect="light">
-              <i class="fa fa-close" @click="closeChat()"></i>
+              <i class="fa fa-close" @click="closeChat()"/>
             </el-tooltip>
           </div>
         </div>
@@ -46,7 +46,6 @@
           <div v-if="topLoading" class="loading">
             <div class="loader">加载历史记录...</div>
           </div>
-
           <div :style="'min-height:' + realMinHeight + 'px; overflow-x:hidden'">
             <!-- 初始进入页面提示 -->
             <div class="message">
@@ -75,7 +74,7 @@
                   :class="isOneself(message) ? 'an-move-right' : 'an-move-left'"
                 >
                   <!-- 时间 -->
-                  <div class="time" v-if="message.type !==10000">
+                  <div v-if="message.type !==10000" class="time">
                     <span> {{ parseTime(message.createdAt, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
                     <span v-if="message.status ===1 && isOneself(message) ">未读</span>
                     <span v-if="message.status ===2 && isOneself(message)">已读</span>
@@ -92,65 +91,89 @@
                       alt="头像图片"
                     >
                     <!-- 文本 -->
-                    <div v-if="message.type == 1" v-emotion="message.content" class="text"
-                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                    <div
+                      v-if="message.type == 1"
+                      v-emotion="message.content"
+                      class="text"
+                      @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                     />
 
                     <!-- 图片 -->
                     <div v-else-if="message.type == 2" class="text">
-                      <img :src="message.content" class="image" alt="聊天图片"
-                           @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      <img
+                        :src="message.content"
+                        class="image"
+                        alt="聊天图片"
+                        @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       >
+                    </div>
+                    <!--音频-->
+                    <div v-else-if="message.type == 3" class="audio-container">
+                      <audio
+                        :src="message.content"
+                        controls
+                        @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      />
+                    </div>
+                    <!--视频-->
+                    <div v-else-if="message.type == 4" class="video-container">
+                      <video
+                        :src="message.content"
+                        controls
+                        @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
+                      />
                     </div>
                     <!-- 其他 -->
                     <div
                       v-else
                       class="text"
-                      v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
                       @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message, index)"
+                      v-text="'[暂未支持的消息类型:' + message.type + ']\n\r' + message.content"
                     />
                   </div>
                 </li>
               </ul>
             </div>
           </div>
-
         </div>
         <div class="input-container">
-
           <div class="input-tool-bar">
-            <i class="el-icon-picture-outline-round"/>
-            <i class="el-icon-picture-outline"/>
-            <i class="el-icon-folder-opened"/>
+            <i class="el-icon-picture-outline-round" @click="showPicker = !showPicker"/>
+            <div v-show="showPicker" class="picker">
+              <Picker @select="onEmojiSelect"/>
+            </div>
+            <!--            <i class="el-icon-picture-outline"/>-->
+            <i class="el-icon-folder-opened" @click="selectFile"/>
+            <form method="post" enctype="multipart/form-data">
+              <input ref="fileInput" type="file" style="display:none" @change="onFileChange">
+            </form>
           </div>
-
           <div class="input-content">
             <div style="flex: 1">
               <el-input
                 v-model="inputText"
                 type="textarea"
                 :placeholder="this.conversationStatus === 0 ? '会话已结束' : '请输入内容'"
-                @keyup.enter.native="sendMessage"
                 :rows="4"
                 :disabled="this.conversationStatus === 0"
+                @keyup.enter.native="sendMessage(1)"
               />
             </div>
           </div>
-
         </div>
       </el-main>
 
     </el-container>
     <el-dialog title="请选择客服" :visible.sync="transferDialogVisible" :close-on-press-escape="false">
-      <im-transfer ref="im_transfer" @submit="transferDialog_submit"></im-transfer>
+      <im-transfer ref="im_transfer" @submit="transferDialog_submit"/>
     </el-dialog>
     <!-- 离线留言dialog -->
     <el-dialog :visible.sync="leaveDialogVisible" :close-on-press-escape="false">
-      <im-leave ref="im_leave" @submit="submitLeave"></im-leave>
+      <im-leave ref="im_leave" @submit="submitLeave"/>
     </el-dialog>
     <!-- 满意度dialog -->
     <el-dialog :visible.sync="rateDialogVisible" :close-on-press-escape="false">
-      <im-rate ref="im_rate" @submit="sumbitRate"></im-rate>
+      <im-rate ref="im_rate" @submit="sumbitRate"/>
     </el-dialog>
 
     <!--    加一个对话框，你确定结束对话吗？-->
@@ -173,7 +196,7 @@
 
 <script>
 import EventDispatcher from '@/utils/dispatch-event'
-import { encode, decode } from '@/utils/codec'
+import { decode, encode } from '@/utils/codec'
 import Command from '@/utils/command'
 import { createPacket } from '@/utils/packet'
 import conversationApi from '@/api/conversation'
@@ -186,16 +209,29 @@ import imRate from './imRate.vue'
 import imLeave from './imLeave.vue'
 import imTransfer from './imTransfer.vue'
 import ContextMenu from '@/components/common/ContextMenu'
+import COS from 'cos-js-sdk-v5'
+import { Picker } from 'emoji-mart-vue'
+import { Decrypt, Encrypt } from '@/utils/AesEncryptUtil'
+import Cookies from 'js-cookie'
 
 export default {
   components: {
     imRate: imRate,
     imLeave: imLeave,
     imTransfer: imTransfer,
-    ContextMenu
+    ContextMenu,
+    Picker
   },
   data() {
     return {
+      serverKey: '',
+      secretKey: '',
+      showPicker: false,
+      url: '',
+      file: null,
+      cos: null,
+      bucket: 'customer-1312794111', // 替换为您自己的存储桶名称
+      region: 'ap-nanjing', // 替换为您自己的存储桶所在的地域
       conversationDialogVisible: false,
       teamId: '',
       recallMessageDto: {
@@ -270,6 +306,7 @@ export default {
     this.listenEvent()
 
     const _this = this
+    // 开启websocket
     if (window.WebSocket) {
       // socket
       this.socket = new WebSocket('ws://localhost:9999/chat')
@@ -295,6 +332,7 @@ export default {
         _this.heartCheck()
         // socket连接成功后，登录netty
         // _this.loginNetty()
+        _this.remenberMe()
       }
 
       // 连接关闭
@@ -333,6 +371,108 @@ export default {
     }
   },
   methods: {
+    remenberMe() {
+      if (Cookies.get('socket_visitor_id') !== undefined) {
+        // cookie存在
+        this.loginNetty()
+      }
+    },
+    // 二次握手,交换密钥
+    secondHandShakeHandler() {
+      const data = {
+        sessionId: this.conversationId,
+        visitorId: this.user.id,
+        serverId: this.contact.id
+      }
+      this.sendPacket(createPacket(data, Command.SECOND_HAND_SHAKE_REQUEST))
+      // 打印发送第二次握手请求
+      console.log(`发送第二次握手请求 ${JSON.stringify(data)}`)
+    },
+    onEmojiSelect(emoji) {
+      // 在选择器中选择emoji后，会触发这个方法
+      // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
+      // 将emoji转换为字符串，插入到聊天框中发送
+      const emojiStr = emoji.native// 或者使用emoji-mart库提供的emoji转换函数
+      // 加入到输入框
+      this.inputText += emojiStr
+      this.showPicker = false
+    },
+    // 打开文件选择对话框
+    selectFile() {
+      this.$refs.fileInput.click()
+    },
+    // 选择文件后触发
+    onFileChange(event) {
+      this.file = event.target.files[0]
+      this.uploadFile()
+    },
+    // 上传文件到腾讯云 OSS
+    async uploadFile() {
+      if (!this.file) {
+        alert('请选择要上传的文件')
+        return
+      }
+
+      // 获取文件名和扩展名
+      const fileName = this.file.name
+      const extensionName = fileName.substring(fileName.lastIndexOf('.') + 1)
+
+      // 设置文件名为当前时间戳和扩展名的组合
+      const timestamp = new Date().getTime()
+      const newFileName = `${timestamp}.${extensionName}`
+
+      // 调用 COS SDK 上传文件
+      this.cos.putObject({
+        Bucket: this.bucket,
+        Region: this.region,
+        Key: newFileName,
+        Body: this.file
+      }, (error, data) => {
+        if (error) {
+          console.error(error)
+          alert('文件上传失败，请重试')
+          return
+        }
+
+        // 获取文件访问地址
+        const self = this
+        const url = this.cos.getObjectUrl({
+          Bucket: this.bucket,
+          Region: this.region,
+          Key: newFileName,
+          Sign: false
+        }, function(err, data) {
+          if (err) return console.log(err)
+          /* url为对象访问 url */
+          var url = data.Url
+          /* 复制 downloadUrl 的值到浏览器打开会自动触发下载 */
+          var downloadUrl =
+            url +
+            (url.indexOf('?') > -1 ? '&' : '?') +
+            'response-content-disposition=attachment' // 补充强制下载的参数
+          console.log(`新的文件访问地址: ${url}`, JSON.stringify(data, null, 2))
+          self.url = url
+        })
+        alert('文件上传成功')
+        let contentType
+        if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].indexOf(extensionName) >= 0) {
+          contentType = '2'
+        } else if (['mp4', 'avi', 'mov', 'wmv', 'mkv', 'flv'].indexOf(extensionName) >= 0) {
+          contentType = '4'
+        } else if (['mp3', 'wav', 'wma', 'ogg', 'aac', 'flac'].indexOf(extensionName) >= 0) {
+          contentType = '3'
+        } else {
+          contentType = '5'
+        }
+        this.sendMessageOSS(contentType)
+      })
+    },
+    createWebSocket() {
+      this.socket = new WebSocket('ws://localhost:9999/chat')
+      this.socket.binaryType = 'arraybuffer'
+      // 重新握手，获取新的会话密钥
+      this.loginNetty()
+    },
     endConversation() {
       const _this = this
       this.conversationDialogVisible = false
@@ -373,8 +513,7 @@ export default {
       } else {
         // 创建会话同时创建用户
         const data = {
-          username: getId(),
-          teamId: 1,
+          fromUserName: getId(),
           toUserId: rs.serverChatId,
           teamID: rs.selectTeamId
         }
@@ -432,8 +571,8 @@ export default {
     submitLeave(data) {
       console.log(`提交留言${JSON.stringify(data)}`)
       data.conversationId = this.conversationId ? this.conversationId : 0
-      data.serverId = this.contact? this.contact.id : 0
-      data.visitorId = this.user? this.user.id : 0
+      data.serverId = this.contact ? this.contact.id : 0
+      data.visitorId = this.user ? this.user.id : 0
       leaveInfoApi.addLeaveInfo(data).then(response => {
         console.log(`提交留言成功${JSON.stringify(response)}`)
         this.leaveDialogVisible = false
@@ -441,7 +580,7 @@ export default {
     },
     sumbitRate(data) {
       console.log(`提交反馈数据${JSON.stringify(data)}`)
-      //向这个data添加属性
+      // 向这个data添加属性
       data.conversationId = this.conversationId
       data.serverId = this.contact.id
       data.visitorId = this.user.id
@@ -473,9 +612,9 @@ export default {
       const _this = this
       setTimeout(() => {
         const scrollContainer = _this.$el.querySelector('#scrollLoader-container')
-        console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+        // console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
         scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight
-        console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+        // console.log(`滚动到最底部 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
       }, 50)
     },
     // 获取会话列表
@@ -504,7 +643,7 @@ export default {
               _this.scrollToBottom()
             }
           }
-          console.log(response.data)
+          // console.log(response.data)
           _this.isUpperLaoding = false
         }
       })
@@ -520,7 +659,7 @@ export default {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         // 不打印心跳包日志
         if (packet && packet.command !== Command.HEART_BEAT_REQUEST) {
-          console.log(`发送消息 ${JSON.stringify(packet)}`)
+          console.log(`发送数据包 ${JSON.stringify(packet)}`)
         }
         this.socket.send(encode(packet))
       } else {
@@ -545,17 +684,41 @@ export default {
           _this.listQuery.contactUserId = _this.contact.id
           _this.listQuery.lessMessageId = 0
           _this.getMessageList()
-
-          console.log(`握手成功 ${JSON.stringify(packet)}`)
+          // 获取密钥
+          this.secretKey = packet.secretKey
+          console.log(`第一次握手成功\n握手响应内容：${JSON.stringify(packet)}，\n获取身份密钥 ${this.secretKey}`)
+          // 允许发送文件，初始化腾讯云 OSS 对象存储 SDK todo 后期改成云端下发
+          this.cos = new COS({
+            SecretId: 'AKID0rVwMcfU5bu1uZ0DRtFOL7jAPRIyRoDV', // 替换为您自己的 SecretId
+            SecretKey: 'EG6mQtBJEwbAZo02qbDhGl6GDxeBVcev' // 替换为您自己的 SecretKey
+          })
+          // 进行第二次握手
+          _this.secondHandShakeHandler()
         }
       })
 
+      // 第二次握手回调
+      this.eventDispatcher.addListener(Command.SECOND_HAND_SHAKE_RESPONSE, packet => {
+        this.serverKey = packet.serverKey
+        console.log(`第二次握手成功\n二次握手响应内容：${JSON.stringify(packet)}`)
+        console.log(`第二次握手成功\n绑定密钥：客服${_this.serverKey},访客${_this.secretKey}`)
+      })
       // 接收消息回调
       this.eventDispatcher.addListener(Command.MESSAGE_RESPONSE, packet => {
+        console.log(`收到信息解码前 ${JSON.stringify(packet)}`)
+        // if (!this.isOneself(packet)) {
+        // console.log(`使用密钥 ${_this.serverKey}解密`)
+        // 如果对方发送的，则用对方的密钥解密
+        //   packet.content = Decrypt(packet.content, _this.serverKey)
+        // } else {
+        //   console.log(`使用密钥 ${_this.secretKey}解密`)
+        // 如果是自己发送的，则用自己的密钥解密
+        packet.content = Decrypt(packet.content, _this.secretKey)
+        // }
         // 收到消息时添加到消息列表
         _this.messageList.push(packet)
         _this.scrollToBottom()
-        console.log(`收到信息 ${JSON.stringify(packet)}`)
+        console.log(`收到信息解码后 ${JSON.stringify(packet)}`)
       })
       // 已读通知回调
       this.eventDispatcher.addListener(Command.READ_RESPONSE, packet => {
@@ -591,24 +754,47 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
-    // 握手,默认团队1
+    // 第一次握手
     loginNetty() {
       const data = {
         username: getId(),
         teamId: this.teamId
       }
+      // 打印发送第一次握手
       this.sendPacket(createPacket(data, Command.LOGIN_REQUEST))
+      console.log(`发送第一次握手:${JSON.stringify(data)}`)
     },
-    // 发送信息
-    sendMessage() {
-      // todo 如果连接已经关闭则重新连接
-      console.log(`发送信息:${this.inputText}`)
+    sendMessageOSS(type) {
+      // 如果连接已经关闭则重新连接
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this.createWebSocket()
+      }
+      console.log(`发送信息:${this.url}`)
       const data = {
         conversationId: this.conversationId,
-        content: this.inputText,
-        type: 1,
+        content: this.url,
+        type: type,
         toUserId: this.contact.id
       }
+      this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
+      // 清空文本框
+      this.inputText = ''
+    },
+    // 发送信息
+    sendMessage(type) {
+      // 如果连接已经关闭则重新连接
+      if (this.socket.readyState === WebSocket.CLOSED) {
+        this.createWebSocket()
+      }
+      console.log(`发送信息:${this.inputText}，采用密钥${this.secretKey}加密`)
+      // 用自己的密钥加密消息内容数据
+      const data = {
+        conversationId: this.conversationId,
+        content: Encrypt(this.inputText, this.secretKey),
+        type: type,
+        toUserId: this.contact.id
+      }
+      console.log(`发送信息加密后:${JSON.stringify(data.content)}`)
       this.sendPacket(createPacket(data, Command.MESSAGE_REQUEST))
       // 清空文本框
       this.inputText = ''
@@ -640,7 +826,7 @@ export default {
         const scrollContainer = _this.$el.querySelector('#scrollLoader-container')
 
         scrollContainer.onscroll = function() {
-          console.log(`滚动中 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
+          // console.log(`滚动中 scrollTop=${scrollContainer.scrollTop}, scrollHeight=${scrollContainer.scrollHeight}, clientHeight=${scrollContainer.clientHeight}`)
           if (scrollContainer.scrollTop <= 0 && !_this.stopTopLoading) {
             if (_this.topLoading) {
               return
@@ -674,6 +860,37 @@ export default {
 /*  left: 100%;*/
 /*  transform: translateX(100px);*/
 /*}*/
+
+.picker {
+  position: absolute;
+  top: -420px;
+  /*transform: translateX(-240px);*/
+  /*transform: translateY(-60%);*/
+}
+
+.audio-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+audio {
+  width: 100%;
+  height: 50px;
+}
+
+.video-container {
+  max-width: 100%;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .input-container {
   height: 150px;
   display: flex;
@@ -683,6 +900,7 @@ export default {
 }
 
 .input-tool-bar {
+  position: relative;
   height: 50px;
   display: flex;
   display: -webkit-flex;
