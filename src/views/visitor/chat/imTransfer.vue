@@ -30,6 +30,7 @@ import teamApi from '@/api/team'
 export default {
   data() {
     return {
+      hasServer: true,
       teamId: '',
       value: '',
       options:[],
@@ -52,6 +53,10 @@ export default {
       // 根据选择的团队获取客服
       conversationApi.getListOnlineServerByTeamId(teamId).then(res => {
         this.kfList = res.data
+        // 如果this.kfList为空
+        if (this.kfList.length === 0) {
+          this.hasServer = false
+        }
       })
       this.selectedServerChatId = ''
     },
@@ -63,7 +68,8 @@ export default {
       // 回传客服userId和teamId
       this.$emit('submit', {
         serverChatId: this.selectedServerChatId,
-        selectTeamId: this.teamId
+        selectTeamId: this.teamId,
+        hasServer: this.hasServer
       })
     },
     submitAuto: function() {

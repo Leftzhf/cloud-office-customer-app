@@ -24,6 +24,7 @@
             <span>您好，请稍等，客服正在赶来的路上~</span>
           </div>
           <div class="opr-wrapper">
+            <el-button type="primary" size="small" round @click="redirectLogin()">客服登录</el-button>
             <el-tooltip content="评分" placement="bottom" effect="light">
               <i class="fa fa-star-half-full" @click="showRateDialog()"/>
             </el-tooltip>
@@ -371,6 +372,9 @@ export default {
     }
   },
   methods: {
+    redirectLogin() {
+      window.location.href = '/login'
+    },
     remenberMe() {
       if (Cookies.get('socket_visitor_id') !== undefined) {
         // cookie存在
@@ -504,6 +508,12 @@ export default {
      */
     transferDialog_submit(rs) {
       this.transferDialogVisible = false
+      if (!rs.hasServer) {
+        this.$message({
+          message: '当前团队没有客服在线，请留言',
+          type: 'warning'
+        })
+      }
       console.log('已选择客服id' + rs.serverChatId)
       console.log('已选择团队id' + rs.selectTeamId)
       // 如果选择了自动分配，则直接握手

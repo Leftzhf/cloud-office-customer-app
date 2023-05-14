@@ -18,6 +18,12 @@ export default {
       method: 'get'
     })
   },
+  getListOnlineCustomer() {
+    return request({
+      url: `/api-im/conversation/list/online/customer`,
+      method: 'get'
+    })
+  },
   getListOnlineServerByTeamId(teamId) {
     return request({
       url: `/api-im/conversation/list/online/server/${teamId}`,
@@ -35,6 +41,19 @@ export default {
     return request({
       url: `/api-im/conversation/update/end/${conversationId}`,
       method: 'post'
+    })
+  },
+  getOnlineConversation() {
+    return request({
+      url: `/api-im/conversation/online`,
+      method: 'get'
+    })
+  },
+  getConversationState(timeQuery) {
+    return request({
+      url: `/api-im/conversation/state`,
+      method: 'post',
+      data: timeQuery
     })
   }
 }
