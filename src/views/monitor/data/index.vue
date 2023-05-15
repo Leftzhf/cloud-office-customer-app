@@ -8,10 +8,10 @@
               <el-card shadow="always">客服在线人数:{{ this.countOnlineServer }}</el-card>
             </el-col>
             <el-col :span="8">
-              <el-card shadow="hover"> 当前在线访客: {{ this.countOnlineCustomer }}</el-card>
+              <el-card shadow="always"> 当前在线访客: {{ this.countOnlineCustomer }}</el-card>
             </el-col>
             <el-col :span="8">
-              <el-card shadow="never"> 当前会话总数: {{ this.countSession }}</el-card>
+              <el-card shadow="always"> 当前会话总数: {{ this.countSession }}</el-card>
             </el-col>
           </el-row>
         </div>
@@ -39,7 +39,6 @@
 <script>
 import * as echarts from 'echarts'
 import conversationApi from '@/api/conversation'
-import { parseTime } from '@/utils/date'
 
 export default {
   name: 'LineChart',
@@ -93,7 +92,7 @@ export default {
       const myChart = echarts.init(document.getElementById('line-chart'))
       const option = {
         title: {
-          text: '客服咨询情况'
+          text: '周客服咨询次数'
         },
         tooltip: {
           trigger: 'axis'

@@ -225,6 +225,8 @@ export default {
   },
   data() {
     return {
+      reconnectInterval: null,
+      isReConnedted: false,
       serverKey: '',
       secretKey: '',
       showPicker: false,
@@ -339,6 +341,8 @@ export default {
       // 连接关闭
       this.socket.onclose = function(event) {
         console.log(`连接关闭 ${JSON.stringify(event)}`)
+        _this.isReConnedted = true
+        _this.recover()
       }
 
       // 连接发生错误
@@ -393,6 +397,7 @@ export default {
       console.log(`发送第二次握手请求 ${JSON.stringify(data)}`)
     },
     onEmojiSelect(emoji) {
+      // this.socket.close()
       // 在选择器中选择emoji后，会触发这个方法
       // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
       // 将emoji转换为字符串，插入到聊天框中发送
@@ -474,8 +479,10 @@ export default {
     createWebSocket() {
       this.socket = new WebSocket('ws://localhost:9999/chat')
       this.socket.binaryType = 'arraybuffer'
-      // 重新握手，获取新的会话密钥
-      this.loginNetty()
+      this.socket.onopen = () => {
+        console.log('WebSocket连接已建立')
+        location.reload() // 刷新浏览器
+      }
     },
     endConversation() {
       const _this = this
@@ -533,6 +540,14 @@ export default {
           this.loginNetty()
         })
       }
+    },
+    // 每15秒尝试重新连接一次，直到连接成功就刷新浏览器
+    recover() {
+      const _this = this
+      this.reconnectInterval = setInterval(function() {
+        console.log('尝试重新连接...')
+        _this.createWebSocket()
+      }, 15000) // 每15秒尝试重新连接一次
     },
     chatCallback() {
       this.transferDialog_show()
@@ -775,10 +790,6 @@ export default {
       console.log(`发送第一次握手:${JSON.stringify(data)}`)
     },
     sendMessageOSS(type) {
-      // 如果连接已经关闭则重新连接
-      if (this.socket.readyState === WebSocket.CLOSED) {
-        this.createWebSocket()
-      }
       console.log(`发送信息:${this.url}`)
       const data = {
         conversationId: this.conversationId,
@@ -792,10 +803,6 @@ export default {
     },
     // 发送信息
     sendMessage(type) {
-      // 如果连接已经关闭则重新连接
-      if (this.socket.readyState === WebSocket.CLOSED) {
-        this.createWebSocket()
-      }
       console.log(`发送信息:${this.inputText}，采用密钥${this.secretKey}加密`)
       // 用自己的密钥加密消息内容数据
       const data = {

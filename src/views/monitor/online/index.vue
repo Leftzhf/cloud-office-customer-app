@@ -7,7 +7,7 @@
         placeholder="请选择访客会话"
         clearable
         class="filter-item"
-        style="width: 130px"
+        style="width: 140px"
         @change=" getHistoryMessage()"
       >
         <el-option
