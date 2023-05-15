@@ -1,174 +1,128 @@
 <template>
-  <div class="common-layout">
-    <el-container>
-      <el-header>
-        <div class="card">
-          <el-row :gutter="12">
-            <el-col :span="8">
-              <el-card shadow="always">客服在线人数:{{ this.countOnlineServer }}</el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="always"> 当前在线访客: {{ this.countOnlineCustomer }}</el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="always"> 当前会话总数: {{ this.countSession }}</el-card>
-            </el-col>
-          </el-row>
-        </div>
-      </el-header>
-      <el-main>
-        <div class="block">
-          <span class="demonstration">筛选</span>
-          <el-date-picker
-            v-model="startDate"
-            type="week"
-            format="yyyy 第 WW 周"
-            placeholder="选择周"
-            @change="handleDatePicker()"
-            :default-time="['00:00:00', '23:59:59']"
-            :picker-options="{ firstDayOfWeek: 1 }"
-          >
-          </el-date-picker>
-        </div>
-        <div id="line-chart" style="width: 100%; height: 400px;"></div>
-      </el-main>
-    </el-container>
+  <div class="app-container">
+    <!-- 查询过滤 -->
+    <div class="filter-container">
+      <el-select
+        v-model="listQuery.contactUserId"
+        placeholder="请选择访客会话"
+        clearable
+        class="filter-item"
+        style="width: 140px"
+        @change=" getHistoryMessage()"
+      >
+        <el-option
+          v-for="item in conversationList"
+          :key="item.key"
+          :label="`访客${item.fromUserId}`"
+          :value="item.fromUserId"
+        />
+      </el-select>
+    </div>
+
+    <!-- 表格 -->
+    <el-table
+      :data="messageList"
+      border
+      fit
+      highlight-current-row
+      style="width: 100%;"
+    >
+      <el-table-column label="消息id" prop="id" min-width="160px" align="center">
+        <template slot-scope="{ row, $index }">
+          <span>{{ $index + 1 }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="发送方id" prop="fromUserId" min-width="160px" align="center"/>
+      <el-table-column label="接收方id" prop="toUserId" min-width="160px" align="center"/>
+      <el-table-column label="消息内容" prop="content" min-width="160px" align="center">
+        <template slot-scope="scope">
+          <template v-if="scope.row.type === 1">{{ scope.row.content }}</template>
+          <template v-else><img :src="scope.row.content" alt="表情图片"></template>
+        </template>
+      </el-table-column>
+      <el-table-column label="发送日期" prop="createdAt" min-width="160px" align="center" :formatter="formatDate"/>
+      <el-table-column label="操作" align="center" min-width="230px" class-name="small-padding fixed-width">
+        <template slot-scope="{row}">
+          <el-button type="primary" size="mini">
+            编辑
+          </el-button>
+          <el-button size="mini" type="danger">
+            删除
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 分页组件 -->
+    <pagination
+      v-show="total>0"
+      :total="total"
+      :page.sync="listQuery.page"
+      :limit.sync="listQuery.pageSize"
+      @pagination="getHistoryMessage()"
+    />
   </div>
 </template>
 
 <script>
-import * as echarts from 'echarts'
+import waves from '@/directive/waves'
+import Pagination from '@/components/Pagination'
 import conversationApi from '@/api/conversation'
+import messageApi from '@/api/message'
 
 export default {
-  name: 'LineChart',
+  components: { Pagination },
+  directives: { waves },
   data() {
     return {
-      startDate: 'Mon Apr 24 2023 00:00:00 GMT+0800', // 日期选择器，选择的起始日期
-      timeQuery: {
-        startTime: '', // 日期选择器，选择的结束日期
-        endTime: '' // 日期选择器，选择的起始日期
-      },
-      countOnlineCustomer: 0, // 在线访客数
-      onlineCustomerList: [], // 在线访客列表
-      countOnlineServer: 0, // 在线客服数
-      onlineServerList: [], // 在线客服列表
-      countSession: 0, // 在线会话数
-      serverToCustomers: [], // 客服-访客会话映射
-      converSationSate: {},// 客服咨询统计折线图数据
-      stateList: [], // 客服咨询统计折线图数据
-      dateString: ''
+      messageList: [],
+      conversationList: [],
+      list: null, // 列表数据
+      total: 0, // 列表总数
+      listLoading: true, // 是否正在加载
+      listQuery: {
+        page: 1,
+        pageSize: 20,
+        // order: 'DESC',
+        contactUserId: ''
+      } // 列表查询条件
     }
   },
   created() {
-    this.initData()
-  },
-  mounted() {
-    this.drawLineChart()
+    this.getConversationList()
   },
   methods: {
-    handleDatePicker() {
-      this.getStartAndEndDate()
-      console.log(`选择的起始日期：${this.timeQuery.startTime}\n结束日期${this.timeQuery.endTime}`)
-      conversationApi.getConversationState(this.timeQuery).then(res => {
-        console.log(`请求客服咨询统计折线图数据`)
-        this.stateList = res.data
-        this.drawLineChart()
+    formatDate(timestamp) {
+      const date = new Date(timestamp.createdAt)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      console.log(`${year}-${month}-${day}`)
+      return `${year}-${month}-${day}`
+    },
+    // 获取会话列表
+    getConversationList() {
+      conversationApi.getConversationList(this.$store.getters.id).then((response) => {
+        if (response.status === 200) {
+          this.conversationList = response.data
+        }
       })
     },
-    getStartAndEndDate() {
-      const selectedDate = new Date(this.startDate)
-      // 获取当前选中日期所在的周的周一日期
-      this.timeQuery.startTime = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - selectedDate.getDay() + 1)
-
-      // 获取当前选中日期所在的周的周日日期
-      this.timeQuery.endTime = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - selectedDate.getDay() + 7, 23, 59, 59)
-      // // 将起止日期转换成时间戳
-      // const startTime = selectedDate.getTime()
-      // const endTime = lastDayOfWeek.getTime()
-    },
-    drawLineChart() {
+    // 获取消息历史记录
+    getHistoryMessage() {
       const _this = this
-      const myChart = echarts.init(document.getElementById('line-chart'))
-      const option = {
-        title: {
-          text: '周客服咨询次数'
-        },
-        tooltip: {
-          trigger: 'axis'
-        },
-        legend: {
-          data: _this.stateList.map(item => item.stateByWeek.nickName)
-        },
-        grid: {
-          left: '5%',
-          right: '4%',
-          bottom: '5%',
-          containLabel: true
-        },
-        toolbox: {
-          feature: {
-            saveAsImage: {}
-          }
-        },
-        xAxis: {
-          type: 'category',
-          boundaryGap: false,
-          data: _this.stateList.map((item) => item.dateString)
-        },
-        yAxis: {
-          type: 'value'
-        },
-        series: _this.stateList.reduce((series, item) => {
-          const existingSeries = series.find(s => s.name === item.stateByWeek.nickName)
-          if (existingSeries) {
-            existingSeries.data.push(item.stateByWeek.countConverSationState)
-          } else {
-            series.push({
-              name: item.stateByWeek.nickName,
-              type: 'line',
-              stack: 'Total',
-              data: [item.stateByWeek.countConverSationState]
-            })
-          }
-          return series
-        }, [])
-        // series: _this.stateList.map((item) => {
-        //   // 遍历每个数据项，生成对应的series对象,按照item.stateByWeek.nickName分组
-        //
-        //   return {
-        //     name: item.stateByWeek.nickName, // legend为nickName
-        //     type: 'line',
-        //     stack: 'Total',
-        //     data: [item.stateByWeek.countConverSationState] // 纵坐标为countConverSationState
-        //   }
-        // })
-      }
-      myChart.setOption(option)
-    },
-
-    initData() {
-      conversationApi.getOnlineConversation().then(res => {
-        this.countSession = res.data.countSession
-        this.serverToCustomers = res.data.countSession
-        console.log(`请求在线会话列表`)
+      messageApi.getMessagePage(this.listQuery).then((response) => {
+        _this.messageList = response.data.list
+        _this.listQuery.pageSize = response.data.pageSize
+        _this.listQuery.page = response.data.currentPage
+        _this.total = response.data.totalCount
       })
-      conversationApi.getListOnlineCustomer().then(res => {
-        this.onlineCustomerList = res.data
-        this.countOnlineCustomer = this.onlineCustomerList.length
-        console.log(`请求当前在线访客列表`)
-      })
-      conversationApi.getListOnlineServer().then(res => {
-        this.onlineServerList = res.data
-        this.countOnlineServer = this.onlineServerList.length
-        console.log(`请求当前在线客服列表`)
-      })
-      this.handleDatePicker()
     }
+
   }
 }
 </script>
 
-<style>
-/* 可以在这里添加CSS样式 */
+<style scoped>
+
 </style>

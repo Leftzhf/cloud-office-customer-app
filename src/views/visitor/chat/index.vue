@@ -121,6 +121,7 @@
                       <video
                         :src="message.content"
                         controls
+                        style="width: 20%"
                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       />
                     </div>
@@ -373,6 +374,7 @@ export default {
     if (this.interval) {
       console.log('清除定时器')
       window.clearInterval(this.interval)
+      window.clearInterval(this.reconnectInterval)
     }
   },
   methods: {

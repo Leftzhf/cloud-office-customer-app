@@ -3,9 +3,9 @@
     <!-- 左边栏 -->
     <div class="left-container">
       <el-table
-        :data="conversationList"
+        :data="filteredConversationList"
         style="width: 100%"
-        height="500"
+        height="957"
         highlight-current-row
         @cell-click="handleConversation"
       >
@@ -15,6 +15,8 @@
           </template>
         </el-table-column>
       </el-table>
+
+
     </div>
 
     <!-- 中间栏 -->
@@ -77,7 +79,7 @@
                       ></audio>
                     </div>
                     <!--视频-->
-                    <div v-else-if="message.type == 4" class="video-container">
+                    <div v-else-if="message.type === 4" class="video-container">
                       <video :src="message.content" controls
                              @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       ></video>
@@ -144,8 +146,24 @@
     <div v-if="conversation" class="right-container">
       <div style="background: #ffffff">访客信息</div>
       <el-card shadow="always">
-        访客用户名：{{ getContact(conversation).username }}
+        访客用户名： <br>
+        {{ getContact(conversation).username }}
       </el-card>
+      <el-card shadow="always">
+        访客id标识： <br>
+        {{ getContact(conversation).id }}
+      </el-card>
+      <el-card shadow="always">
+        访问时间： <br>
+        {{ formatDate(getContact(conversation).createdAt) }}
+      </el-card>
+      <el-button
+        type="primary"
+        style="width:100%;margin-bottom:30px;"
+        @click="endConversation"
+      >
+        结束会话
+      </el-button>
     </div>
     <ContextMenu
       v-if="contextMenuVisible"
@@ -177,6 +195,8 @@ export default {
   },
   data() {
     return {
+      statusFilter: (item) => item.status === 1,
+      selectConversationIndex: 0,
       reconnectInterval: null,
       isReConnedted: false,
       visitorKey: '',
@@ -228,7 +248,12 @@ export default {
       user: null // 当前用户对象
     }
   },
-  computed: {},
+  computed: {
+    filteredConversationList() {
+      return this.conversationList.filter(this.statusFilter)
+    }
+  },
+
   // 不能操作DOM
   created() {
     this.getConversationList()
@@ -318,14 +343,38 @@ export default {
       }
     }
   },
+
   beforeDestroy() {
     // 清除定时器
     if (this.interval) {
       console.log('清除定时器')
       window.clearInterval(this.interval)
+      window.clearInterval(this.reconnectInterval)
     }
   },
   methods: {
+    endConversation() {
+      const _this = this
+      console.log(`结束会话 ${this.conversation.status}`)
+      const id = this.conversation.id
+      //会话接口结束状态
+      conversationApi.updateConversationEnd(id).then(res => {
+        if (res.status === 200) {
+          _this.conversationList.splice(_this.conversationList.findIndex((item) => item.id === id), 1)
+          // 移除之后页面恢复到暂时没有消息状态
+          _this.conversation = null
+          console.log('会话结束状态更新成功')
+        }
+      })
+    },
+    formatDate(timestamp) {
+      const date = new Date(timestamp)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      console.log(`${year}-${month}-${day}`)
+      return `${year}-${month}-${day}`
+    },
     // 二次握手,交换密钥
     secondHandShakeHandler() {
       const data = {
@@ -665,6 +714,8 @@ export default {
     },
     // 选择会话
     handleConversation(conversation) {
+      // console.log(`选择会话索引:${conversation.$index}，会话内容:${JSON.stringify(conversation)}`)
+      // this.selectConversationIndex = index
       this.conversation = conversation
       this.contact = this.getContact(conversation)
       this.messageList = []
