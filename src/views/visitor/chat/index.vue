@@ -772,6 +772,25 @@ export default {
         _this.scrollToBottom()
         console.log(`收到撤回通知 ${JSON.stringify(packet)}`)
       })
+      // 客服结束会话通知回调
+      this.eventDispatcher.addListener(Command.END_CONVERSATION_RESPONSE, packet => {
+        if (packet.success) {
+          console.log(`客服结束会话通知 ${JSON.stringify(packet)}`)
+          // 关闭websocket
+          this.socket.close()
+          _this.$message({
+            message: '客服已结束会话',
+            type: 'warning'
+          })
+          // 弹出评价提示框
+          this.rateDialogVisible = true
+          // 删除cookie，下次进入的时候就会生成新的访客了
+          removeId()
+          // 设置会话状态为已结束，禁止输入内容
+          _this.conversationStatus = 0
+          console.log(`会话${_this.conversationId}已结束!`)
+        }
+      })
     },
     // 心跳检测
     heartCheck() {
