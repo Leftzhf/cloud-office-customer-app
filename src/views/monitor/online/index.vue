@@ -30,8 +30,11 @@
           >
           </el-date-picker>
         </div>
-        <div id="line-chart" style="width: 100%; height: 400px;"></div>
-        <div id="bar-chart" style="width: 100%; height: 400px;"></div>
+        <div style="display: flex;">
+          <div id="line-chart" style="width: 50%; height: 600px;"></div>
+          <div id="bar-chart" style="width: 40%; height: 700px;"></div>
+        </div>
+
       </el-main>
     </el-container>
   </div>
@@ -45,6 +48,7 @@ export default {
   name: 'LineChart',
   data() {
     return {
+      barStateList: [],
       startDate: 'Mon Apr 24 2023 00:00:00 GMT+0800', // 日期选择器，选择的起始日期
       timeQuery: {
         startTime: '', // 日期选择器，选择的结束日期
@@ -58,7 +62,7 @@ export default {
       serverToCustomers: [], // 客服-访客会话映射
       converSationSate: {},// 客服咨询统计折线图数据
       stateList: [], // 客服咨询统计折线图数据
-      dateString: ''
+      dateString: []
     }
   },
   created() {
@@ -71,11 +75,20 @@ export default {
   methods: {
     handleDatePicker() {
       this.getStartAndEndDate()
+      const _this = this
       console.log(`选择的起始日期：${this.timeQuery.startTime}\n结束日期${this.timeQuery.endTime}`)
+      // 画折线图
       conversationApi.getConversationState(this.timeQuery).then(res => {
         console.log(`请求客服咨询统计折线图数据`)
-        this.stateList = res.data
-        this.drawLineChart()
+        _this.dateString = res.data.dateString
+        _this.stateList = res.data.stateByWeek
+        _this.drawLineChart()
+      })
+      // 画饼图
+      conversationApi.getConversationBarState(this.timeQuery).then(res => {
+        console.log(`请求客服咨询统计饼图数据`)
+        _this.barStateList = res.data
+        _this.drawBarChart()
       })
     },
     getStartAndEndDate() {
@@ -94,13 +107,14 @@ export default {
       const myChart = echarts.init(document.getElementById('line-chart'))
       const option = {
         title: {
-          text: '周客服会话情况'
+          text: '客服接待情况'
         },
         tooltip: {
           trigger: 'axis'
         },
         legend: {
-          data: _this.stateList.map(item => item.stateByWeek.nickName)
+          data: [...new Set(_this.stateList.flatMap(item2 => item2.nickName))]
+
         },
         grid: {
           left: '5%',
@@ -116,45 +130,51 @@ export default {
         xAxis: {
           type: 'category',
           boundaryGap: false,
-          data: _this.stateList.map((item) => item.dateString)
+          data: _this.dateString
         },
         yAxis: {
           type: 'value'
         },
-        series: _this.stateList.reduce((series, item) => {
-          const existingSeries = series.find(s => s.name === item.stateByWeek.nickName)
-          if (existingSeries) {
-            existingSeries.data.push(item.stateByWeek.countConverSationState)
-          } else {
-            series.push({
-              name: item.stateByWeek.nickName,
-              type: 'line',
-              stack: 'Total',
-              data: [item.stateByWeek.countConverSationState]
-            })
+        series: _this.stateList.map(item => {
+          return {
+            name: item.nickName,
+            type: 'line',
+            stack: '总量',
+            data: item.countConverSationState
           }
-          return series
-        }, [])
+        })
       }
+      // debugger
       myChart.setOption(option)
     },
     drawBarChart() {
+      const _this = this
       const myChart = echarts.init(document.getElementById('bar-chart'))
       const option = {
-        xAxis: {
-          type: 'category',
-          data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        title: {
+          text: '访客来访情况',
+          subtext: 'Fake Data',
+          left: 'center'
         },
-        yAxis: {
-          type: 'value'
+        tooltip: {
+          trigger: 'item'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left'
         },
         series: [
           {
-            data: [120, 200, 150, 80, 70, 110, 130],
-            type: 'bar',
-            showBackground: true,
-            backgroundStyle: {
-              color: 'rgba(180, 180, 180, 0.2)'
+            name: 'Access From',
+            type: 'pie',
+            radius: '50%',
+            data: _this.barStateList,
+            emphasis: {
+              itemStyle: {
+                shadowBlur: 10,
+                shadowOffsetX: 0,
+                shadowColor: 'rgba(0, 0, 0, 0.5)'
+              }
             }
           }
         ]

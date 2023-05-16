@@ -77,7 +77,6 @@ import Pagination from '@/components/Pagination'
 import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
 import { MessageBox } from 'element-ui'
-import MessageApi from '@/api/message'
 
 export default {
   components: { Pagination },

@@ -55,5 +55,12 @@ export default {
       method: 'post',
       data: timeQuery
     })
+  },
+  getConversationBarState(timeQuery) {
+    return request({
+      url: `/api-im/conversation/barState`,
+      method: 'post',
+      data: timeQuery
+    })
   }
 }
