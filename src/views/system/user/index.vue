@@ -68,13 +68,13 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="微信登录" min-width="100px" align="center">
-        <template slot-scope="{row}">
-          <el-tag :type="row.openId != null && row.openId.length === 0 ? 'info' : 'success'">
-            {{ row.openId != null && row.openId.length === 0 ? '未开通' : '已开通' }}
-          </el-tag>
-        </template>
-      </el-table-column>
+<!--      <el-table-column label="微信登录" min-width="100px" align="center">-->
+<!--        <template slot-scope="{row}">-->
+<!--          <el-tag :type="row.openId != null && row.openId.length === 0 ? 'info' : 'success'">-->
+<!--            {{ row.openId != null && row.openId.length === 0 ? '未开通' : '已开通' }}-->
+<!--          </el-tag>-->
+<!--        </template>-->
+<!--      </el-table-column>-->
       <el-table-column label="注册时间" min-width="160px" align="center">
         <template slot-scope="{row}">
           <span>{{ row.createdAt }}</span>

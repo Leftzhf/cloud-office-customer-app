@@ -26,5 +26,11 @@ export default {
       method: 'post',
       data: messageDto
     })
+  },
+  deleteMessageById(id) {
+    return request({
+      url: `/api-im/message/delete/${id}`,
+      method: 'post'
+    })
   }
 }

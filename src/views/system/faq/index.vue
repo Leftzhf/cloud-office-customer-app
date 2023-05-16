@@ -70,9 +70,7 @@
           <el-input-number v-model="faqInfo.sort" placeholder="请输入排序" :min="1" :max="999" controls-position="right" style="width: 400px;" />
         </el-form-item>
         <el-form-item label="内容">
-          <template>
-            <div ref="editor" style="text-align:left" />
-          </template>
+          <el-input type="textarea" v-model="faqInfo.content" style="width: 400px;" />
         </el-form-item>
       </el-form>
 

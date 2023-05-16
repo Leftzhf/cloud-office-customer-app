@@ -32,8 +32,18 @@
           <span>{{ $index + 1 }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="发送方id" prop="fromUserId" min-width="160px" align="center"/>
-      <el-table-column label="接收方id" prop="toUserId" min-width="160px" align="center"/>
+      <el-table-column label="发送方" prop="fromUserId" min-width="160px" align="center" >
+        <template slot-scope="{ row }">
+          <span v-if="isOneself(row)">客服</span>
+          <span v-else>访客</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="接收方" prop="toUserId" min-width="160px" align="center">
+        <template slot-scope="{ row }">
+          <span v-if="!isOneself(row)">客服</span>
+          <span v-else>访客</span>
+        </template>
+      </el-table-column>
       <el-table-column label="消息内容" prop="content" min-width="160px" align="center">
         <template slot-scope="scope">
           <template v-if="scope.row.type === 1">{{ scope.row.content }}</template>
@@ -43,10 +53,7 @@
       <el-table-column label="发送日期" prop="createdAt" min-width="160px" align="center" :formatter="formatDate"/>
       <el-table-column label="操作" align="center" min-width="230px" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
-          <el-button type="primary" size="mini">
-            编辑
-          </el-button>
-          <el-button size="mini" type="danger">
+          <el-button size="mini" type="danger" @click="handleDelete(row)">
             删除
           </el-button>
         </template>
@@ -69,12 +76,15 @@ import waves from '@/directive/waves'
 import Pagination from '@/components/Pagination'
 import conversationApi from '@/api/conversation'
 import messageApi from '@/api/message'
+import { MessageBox } from 'element-ui'
+import MessageApi from '@/api/message'
 
 export default {
   components: { Pagination },
   directives: { waves },
   data() {
     return {
+      user: this.$store.getters.userInfo,
       messageList: [],
       conversationList: [],
       list: null, // 列表数据
@@ -92,6 +102,35 @@ export default {
     this.getConversationList()
   },
   methods: {
+    deleteData(id) {
+      messageApi.deleteMessageById(id).then((response) => {
+        if (response.status === 200) {
+          this.$notify({
+            title: '成功',
+            message: '删除成功',
+            type: 'success',
+            duration: 2000
+          })
+          // 重新加载数据
+          this.getHistoryMessage()
+        }
+      })
+    },
+    handleDelete(row){
+      MessageBox.confirm(`确定删除吗？删除后无法恢复，请谨慎操作！`, '温馨提示', {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.deleteData(row.id)
+      })
+    },
+    // 是否是自己发送的信息
+    isOneself(row) {
+      // console.log(row)
+      // console.log(this.user)
+      return row.fromUserId === this.user.id
+    },
     formatDate(timestamp) {
       const date = new Date(timestamp.createdAt)
       const year = date.getFullYear()

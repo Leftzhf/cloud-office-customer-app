@@ -21,7 +21,7 @@
     <!-- 表格 -->
     <el-table
       v-loading="listLoading"
-      :data="list"
+      :data="filteredList"
       border
       fit
       highlight-current-row
@@ -62,13 +62,13 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="微信登录" min-width="100px" align="center">
-        <template slot-scope="{row}">
-          <el-tag :type="row.openId != null && row.openId.length === 0 ? 'info' : 'success'">
-            {{ row.openId != null && row.openId.length === 0 ? '未开通' : '已开通' }}
-          </el-tag>
-        </template>
-      </el-table-column>
+<!--      <el-table-column label="微信登录" min-width="100px" align="center">-->
+<!--        <template slot-scope="{row}">-->
+<!--          <el-tag :type="row.openId != null && row.openId.length === 0 ? 'info' : 'success'">-->
+<!--            {{ row.openId != null && row.openId.length === 0 ? '未开通' : '已开通' }}-->
+<!--          </el-tag>-->
+<!--        </template>-->
+<!--      </el-table-column>-->
       <el-table-column label="注册时间" min-width="160px" align="center">
         <template slot-scope="{row}">
           <span>{{ row.createdAt }}</span>
@@ -188,6 +188,7 @@ export default {
   },
   data() {
     return {
+      statusFilter: (item) => item.nickname !== '访客',
       list: null, // 列表数据
       total: 0, // 列表总数
       listLoading: true, // 是否正在加载
@@ -235,6 +236,14 @@ export default {
     this.getAllRole()
     this.getTallestRoleLevel()
   },
+  computed: {
+    filteredList() {
+      return this.list.filter(this.statusFilter)
+    },
+    filteredTotal() {
+      return this.filteredList.length
+    }
+  },
   methods: {
     // 根据列表查询条件查询表格数据
     getList() {
@@ -243,7 +252,7 @@ export default {
       if (this.$store.getters.userInfo.team) {
         this.listQuery.teamId = this.$store.getters.userInfo.team.id
       }
-      userApi.getUserList(this.listQuery).then((response) => {
+      userApi.getUserServerList(this.listQuery).then((response) => {
         this.listLoading = false
         this.list = response.data.list
         this.total = response.data.totalCount
