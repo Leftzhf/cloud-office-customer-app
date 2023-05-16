@@ -51,5 +51,11 @@ export default {
       method: 'put',
       data: teamInfo
     })
+  },
+  getTeamInfo(teamId) {
+    return request({
+      url: `/api-usercenter/team/teamInfo/${teamId}`,
+      method: 'get'
+    })
   }
 }

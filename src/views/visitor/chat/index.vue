@@ -24,6 +24,7 @@
             <span>您好，请稍等，客服正在赶来的路上~</span>
           </div>
           <div class="opr-wrapper">
+            <el-button type="primary" size="small" round @click="redirectLogin()">客服登录</el-button>
             <el-tooltip content="评分" placement="bottom" effect="light">
               <i class="fa fa-star-half-full" @click="showRateDialog()"/>
             </el-tooltip>
@@ -120,6 +121,7 @@
                       <video
                         :src="message.content"
                         controls
+                        style="width: 20%"
                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       />
                     </div>
@@ -224,6 +226,8 @@ export default {
   },
   data() {
     return {
+      reconnectInterval: null,
+      isReConnedted: false,
       serverKey: '',
       secretKey: '',
       showPicker: false,
@@ -338,6 +342,8 @@ export default {
       // 连接关闭
       this.socket.onclose = function(event) {
         console.log(`连接关闭 ${JSON.stringify(event)}`)
+        _this.isReConnedted = true
+        _this.recover()
       }
 
       // 连接发生错误
@@ -368,9 +374,13 @@ export default {
     if (this.interval) {
       console.log('清除定时器')
       window.clearInterval(this.interval)
+      window.clearInterval(this.reconnectInterval)
     }
   },
   methods: {
+    redirectLogin() {
+      window.location.href = '/login'
+    },
     remenberMe() {
       if (Cookies.get('socket_visitor_id') !== undefined) {
         // cookie存在
@@ -389,6 +399,7 @@ export default {
       console.log(`发送第二次握手请求 ${JSON.stringify(data)}`)
     },
     onEmojiSelect(emoji) {
+      // this.socket.close()
       // 在选择器中选择emoji后，会触发这个方法
       // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
       // 将emoji转换为字符串，插入到聊天框中发送
@@ -470,8 +481,10 @@ export default {
     createWebSocket() {
       this.socket = new WebSocket('ws://localhost:9999/chat')
       this.socket.binaryType = 'arraybuffer'
-      // 重新握手，获取新的会话密钥
-      this.loginNetty()
+      this.socket.onopen = () => {
+        console.log('WebSocket连接已建立')
+        location.reload() // 刷新浏览器
+      }
     },
     endConversation() {
       const _this = this
@@ -504,6 +517,12 @@ export default {
      */
     transferDialog_submit(rs) {
       this.transferDialogVisible = false
+      if (!rs.hasServer) {
+        this.$message({
+          message: '当前团队没有客服在线，请留言',
+          type: 'warning'
+        })
+      }
       console.log('已选择客服id' + rs.serverChatId)
       console.log('已选择团队id' + rs.selectTeamId)
       // 如果选择了自动分配，则直接握手
@@ -523,6 +542,14 @@ export default {
           this.loginNetty()
         })
       }
+    },
+    // 每15秒尝试重新连接一次，直到连接成功就刷新浏览器
+    recover() {
+      const _this = this
+      this.reconnectInterval = setInterval(function() {
+        console.log('尝试重新连接...')
+        _this.createWebSocket()
+      }, 15000) // 每15秒尝试重新连接一次
     },
     chatCallback() {
       this.transferDialog_show()
@@ -745,6 +772,25 @@ export default {
         _this.scrollToBottom()
         console.log(`收到撤回通知 ${JSON.stringify(packet)}`)
       })
+      // 客服结束会话通知回调
+      this.eventDispatcher.addListener(Command.END_CONVERSATION_RESPONSE, packet => {
+        if (packet.success) {
+          console.log(`客服结束会话通知 ${JSON.stringify(packet)}`)
+          // 关闭websocket
+          this.socket.close()
+          _this.$message({
+            message: '客服已结束会话',
+            type: 'warning'
+          })
+          // 弹出评价提示框
+          this.rateDialogVisible = true
+          // 删除cookie，下次进入的时候就会生成新的访客了
+          removeId()
+          // 设置会话状态为已结束，禁止输入内容
+          _this.conversationStatus = 0
+          console.log(`会话${_this.conversationId}已结束!`)
+        }
+      })
     },
     // 心跳检测
     heartCheck() {
@@ -765,10 +811,6 @@ export default {
       console.log(`发送第一次握手:${JSON.stringify(data)}`)
     },
     sendMessageOSS(type) {
-      // 如果连接已经关闭则重新连接
-      if (this.socket.readyState === WebSocket.CLOSED) {
-        this.createWebSocket()
-      }
       console.log(`发送信息:${this.url}`)
       const data = {
         conversationId: this.conversationId,
@@ -782,10 +824,6 @@ export default {
     },
     // 发送信息
     sendMessage(type) {
-      // 如果连接已经关闭则重新连接
-      if (this.socket.readyState === WebSocket.CLOSED) {
-        this.createWebSocket()
-      }
       console.log(`发送信息:${this.inputText}，采用密钥${this.secretKey}加密`)
       // 用自己的密钥加密消息内容数据
       const data = {

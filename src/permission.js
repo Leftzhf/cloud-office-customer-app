@@ -8,7 +8,7 @@ import getPageTitle from '@/utils/get-page-title'
 NProgress.configure({ showSpinner: false }) // NProgress Configuration
 
 // 免登录白名单
-const whiteList = ['/login', '/visitor', '/visitorChat',"/"]
+const whiteList = ['/login', '/']
 
 // 路由跳转前
 router.beforeEach((to, from, next) => {
@@ -39,7 +39,7 @@ router.beforeEach((to, from, next) => {
           store.dispatch('user/logout').then(() => {
             // 为了重新实例化vue-router对象 避免bug
             location.reload()
-            // next({ path: '/' })
+            next({ path: '/' })
           })
         })
       }

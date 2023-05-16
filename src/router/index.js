@@ -28,11 +28,11 @@ import Layout from '@/layout'
 export const constantRoutes = [
 
   // 访客聊天页面
-  {
-    path: '/visitor',
-    component: () => import('@/views/visitor/chat/imClient'),
-    hidden: true
-  },
+  // {
+  //   path: '/visitor',
+  //   component: () => import('@/views/visitor/chat/imClient'),
+  //   hidden: true
+  // },
 
   {
     path: '/',

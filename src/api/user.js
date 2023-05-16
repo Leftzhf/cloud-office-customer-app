@@ -33,7 +33,13 @@ export default {
       data: userPageDto
     })
   },
-
+  getUserServerList(userPageDto) {
+    return request({
+      url: '/api-usercenter/user/list/server',
+      method: 'post',
+      data: userPageDto
+    })
+  },
   /**
    * 更新用户信息
    * @param {Object} userDto 用户信息
@@ -68,5 +74,6 @@ export default {
       method: 'delete'
     })
   }
+
 
 }

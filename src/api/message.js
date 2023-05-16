@@ -6,6 +6,13 @@ export default {
    * @param messageListDto 查询条件
    * @returns {AxiosPromise}
    */
+  getMessagePage(messageListDto) {
+    return request({
+      url: '/api-im/message/listPage',
+      method: 'post',
+      data: messageListDto
+    })
+  },
   getMessageList(messageListDto) {
     return request({
       url: '/api-im/message/list',
@@ -18,6 +25,12 @@ export default {
       url: '/api-im/message/recall',
       method: 'post',
       data: messageDto
+    })
+  },
+  deleteMessageById(id) {
+    return request({
+      url: `/api-im/message/delete/${id}`,
+      method: 'post'
     })
   }
 }

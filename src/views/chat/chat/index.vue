@@ -3,9 +3,9 @@
     <!-- 左边栏 -->
     <div class="left-container">
       <el-table
-        :data="conversationList"
+        :data="filteredConversationList"
         style="width: 100%"
-        height="500"
+        height="957"
         highlight-current-row
         @cell-click="handleConversation"
       >
@@ -15,6 +15,8 @@
           </template>
         </el-table-column>
       </el-table>
+
+
     </div>
 
     <!-- 中间栏 -->
@@ -77,7 +79,7 @@
                       ></audio>
                     </div>
                     <!--视频-->
-                    <div v-else-if="message.type == 4" class="video-container">
+                    <div v-else-if="message.type === 4" class="video-container">
                       <video :src="message.content" controls
                              @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       ></video>
@@ -142,7 +144,26 @@
 
     <!-- 右边栏 -->
     <div v-if="conversation" class="right-container">
-      <div style="background: #ffffff">右边栏</div>
+      <div style="background: #ffffff">访客信息</div>
+      <el-card shadow="always">
+        访客用户名： <br>
+        {{ getContact(conversation).username }}
+      </el-card>
+      <el-card shadow="always">
+        访客id标识： <br>
+        {{ getContact(conversation).id }}
+      </el-card>
+      <el-card shadow="always">
+        访问时间： <br>
+        {{ formatDate(getContact(conversation).createdAt) }}
+      </el-card>
+      <el-button
+        type="primary"
+        style="width:100%;margin-bottom:30px;"
+        @click="endConversation"
+      >
+        结束会话
+      </el-button>
     </div>
     <ContextMenu
       v-if="contextMenuVisible"
@@ -174,6 +195,10 @@ export default {
   },
   data() {
     return {
+      statusFilter: (item) => item.status === 1,
+      selectConversationIndex: 0,
+      reconnectInterval: null,
+      isReConnedted: false,
       visitorKey: '',
       showPicker: false,
       url: '',
@@ -223,7 +248,12 @@ export default {
       user: null // 当前用户对象
     }
   },
-  computed: {},
+  computed: {
+    filteredConversationList() {
+      return this.conversationList.filter(this.statusFilter)
+    }
+  },
+
   // 不能操作DOM
   created() {
     this.getConversationList()
@@ -275,6 +305,10 @@ export default {
       // 连接建立后自动进行一次握手和开启心跳检测
       this.socket.onopen = function(event) {
         console.log(`连接建立 ${JSON.stringify(event)}`)
+        if (_this.isReConnedted) {
+          clearInterval(_this.reconnectInterval)
+          _this.isReConnedted = false
+        }
         // 心跳检测
         _this.heartCheck()
         // socket连接成功后，发送握手数据包
@@ -283,7 +317,9 @@ export default {
 
       // 连接关闭
       this.socket.onclose = function(event) {
-        console.log(`连接关闭 ${JSON.stringify(event)}`)
+        console.log(`连接已关闭 ${JSON.stringify(event)}`)
+        _this.isReConnedted = true
+        _this.recover()
       }
 
       // 连接发生错误
@@ -293,14 +329,12 @@ export default {
     } else {
       console.log('当前浏览器不支持WebSocket')
     }
-
     // 刷新浏览器
     window.onbeforeunload = function() {
       if (!window.WebSocket) {
         console.log('当前浏览器不支持WebSocket')
         return
       }
-
       // 当websocket状态打开
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         this.socket.close()
@@ -309,14 +343,38 @@ export default {
       }
     }
   },
+
   beforeDestroy() {
     // 清除定时器
     if (this.interval) {
       console.log('清除定时器')
       window.clearInterval(this.interval)
+      window.clearInterval(this.reconnectInterval)
     }
   },
   methods: {
+    endConversation() {
+      const _this = this
+      console.log(`结束会话 ${this.conversation.status}`)
+      const id = this.conversation.id
+      //会话接口结束状态
+      conversationApi.updateConversationEnd(id).then(res => {
+        if (res.status === 200) {
+          _this.conversationList.splice(_this.conversationList.findIndex((item) => item.id === id), 1)
+          // 移除之后页面恢复到暂时没有消息状态
+          _this.conversation = null
+          console.log('会话结束状态更新成功')
+        }
+      })
+    },
+    formatDate(timestamp) {
+      const date = new Date(timestamp)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      console.log(`${year}-${month}-${day}`)
+      return `${year}-${month}-${day}`
+    },
     // 二次握手,交换密钥
     secondHandShakeHandler() {
       const data = {
@@ -328,6 +386,7 @@ export default {
       console.log(`发送二次握手数据包 ${JSON.stringify(data)}`)
     },
     onEmojiSelect(emoji) {
+      // this.socket.close()
       // 在选择器中选择emoji后，会触发这个方法
       // emoji是一个包含emoji信息的对象，其中包含unicode或图片等属性
       // 将emoji转换为字符串，插入到聊天框中发送
@@ -344,7 +403,7 @@ export default {
       console.log(`发送信息:${this.url}`)
       const data = {
         conversationId: this.conversationId,
-        content: this.url,
+        content: Encrypt(this.url, this.secretKey),
         type: type,
         toUserId: this.contact.id
       }
@@ -390,15 +449,25 @@ export default {
         }
 
         // 获取文件访问地址
+        const self = this
         const url = this.cos.getObjectUrl({
           Bucket: this.bucket,
           Region: this.region,
           Key: newFileName,
-          Expires: 3600 // 设置 URL 有效期为 1 小时
+          Sign: false
+        }, function(err, data) {
+          if (err) return console.log(err)
+          /* url为对象访问 url */
+          var url = data.Url
+          /* 复制 downloadUrl 的值到浏览器打开会自动触发下载 */
+          var downloadUrl =
+            url +
+            (url.indexOf('?') > -1 ? '&' : '?') +
+            'response-content-disposition=attachment' // 补充强制下载的参数
+          console.log(`新的文件访问地址: ${url}`, JSON.stringify(data, null, 2))
+          self.url = url
         })
         alert('文件上传成功')
-        console.log(`文件访问地址: ${url}`)
-        this.url = url
         let contentType
         if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].indexOf(extensionName) >= 0) {
           contentType = '2'
@@ -415,6 +484,10 @@ export default {
     createWebSocket() {
       this.socket = new WebSocket('ws://localhost:9999/chat')
       this.socket.binaryType = 'arraybuffer'
+      this.socket.onopen = () => {
+        console.log('WebSocket连接已建立')
+        location.reload() // 刷新浏览器
+      }
     },
     hideContextMenu() {
       // 隐藏右键菜单
@@ -601,6 +674,14 @@ export default {
         _this.sendPacket(createPacket({}, Command.HEART_BEAT_REQUEST))
       }, 5000)
     },
+    // 每15秒尝试重新连接一次，直到连接成功就刷新浏览器
+    recover() {
+      const _this = this
+      this.reconnectInterval = setInterval(function() {
+        console.log('尝试重新连接...')
+        _this.createWebSocket()
+      }, 15000) // 每15秒尝试重新连接一次
+    },
     // 握手
     loginNetty() {
       const data = {
@@ -633,6 +714,8 @@ export default {
     },
     // 选择会话
     handleConversation(conversation) {
+      // console.log(`选择会话索引:${conversation.$index}，会话内容:${JSON.stringify(conversation)}`)
+      // this.selectConversationIndex = index
       this.conversation = conversation
       this.contact = this.getContact(conversation)
       this.messageList = []
