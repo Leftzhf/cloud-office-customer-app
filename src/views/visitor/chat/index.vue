@@ -383,7 +383,7 @@ export default {
     },
     remenberMe() {
       if (Cookies.get('socket_visitor_id') !== undefined) {
-        // cookie存在
+        // cookie存在，自动握手
         this.loginNetty()
       }
     },
@@ -502,6 +502,8 @@ export default {
           console.log(`会话${_this.conversationId}已结束!`)
         }
       })
+      // 弹出评价窗口
+      this.rateDialogVisible = true
     },
     closeChat() {
       this.conversationDialogVisible = true
@@ -525,10 +527,19 @@ export default {
       }
       console.log('已选择客服id' + rs.serverChatId)
       console.log('已选择团队id' + rs.selectTeamId)
-      // 如果选择了自动分配，则直接握手
+      // 如果选择了自动分配，则调接口分配客服
       if (rs.serverChatId === -1) {
         this.teamId = rs.selectTeamId
-        this.loginNetty()
+        // this.loginNetty()
+        const data = {
+          fromUserName: getId(),
+          teamID: rs.selectTeamId
+        }
+        conversationApi.getConversationDistributionVO(data).then(res => {
+          console.log(`分配客服成功,客服id:${res.data.server.id}`)
+          // 分配成功，开始握手
+          this.loginNetty()
+        })
       } else {
         // 创建会话同时创建用户
         const data = {
@@ -538,7 +549,7 @@ export default {
         }
         conversationApi.createConversation(data).then(res => {
           console.log(`创建会话成功`)
-          // 发送握手请求
+          // 创建成功，发送握手请求
           this.loginNetty()
         })
       }
@@ -697,7 +708,7 @@ export default {
     listenEvent() {
       const _this = this
 
-      // 握手回调
+      // 第一次握手回调
       this.eventDispatcher.addListener(Command.LOGIN_RESPONSE, packet => {
         if (packet.success) {
           // 会话id
@@ -721,6 +732,15 @@ export default {
           })
           // 进行第二次握手
           _this.secondHandShakeHandler()
+        } else {
+          console.log(`第一次握手失败\n握手响应内容：${JSON.stringify(packet)}`)
+          // 删除cookie
+          removeId()
+          // 弹出提示信息，请重新发起会话
+          _this.$message({
+            message: '当前会话已结束，请重新发起会话',
+            type: 'warning'
+          })
         }
       })
 

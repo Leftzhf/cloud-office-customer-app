@@ -665,6 +665,12 @@ export default {
         _this.scrollToBottom()
         console.log(`收到撤回通知 ${JSON.stringify(packet)}`)
       })
+      // 会话创建通知回调
+      this.eventDispatcher.addListener(Command.CREATE_CONVERSATION_RESPONSE, packet => {
+        console.log(`收到创建会话通知 ${JSON.stringify(packet)}`)
+         // 加入会话列表
+        this.conversationList.push(packet.conversation)
+      })
     },
     // 心跳检测
     heartCheck() {

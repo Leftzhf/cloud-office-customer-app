@@ -62,5 +62,12 @@ export default {
       method: 'post',
       data: timeQuery
     })
+  },
+  getConversationDistributionVO(conversationDTO) {
+    return request({
+      url: `/api-im/conversation/distribution`,
+      method: 'post',
+      data: conversationDTO
+    })
   }
 }
