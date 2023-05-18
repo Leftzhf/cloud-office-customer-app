@@ -2,7 +2,7 @@
   <div class="common-layout">
     <el-container>
       <el-header>
-        <div class="card">
+        <div class="card" style="margin-top: 10px;">
           <el-row :gutter="12">
             <el-col :span="8">
               <el-card shadow="always">客服在线人数:{{ this.countOnlineServer }}</el-card>
@@ -17,8 +17,8 @@
         </div>
       </el-header>
       <el-main>
-        <div class="block">
-          <span class="demonstration">筛选</span>
+        <div class="block" style="margin: 8px; 0px;">
+          <span class="demonstration" style="margin-right: 6px;">筛选</span>
           <el-date-picker
             v-model="startDate"
             type="week"
@@ -30,9 +30,9 @@
           >
           </el-date-picker>
         </div>
-        <div style="display: flex;">
-          <div id="line-chart" style="width: 50%; height: 600px;"></div>
-          <div id="bar-chart" style="width: 40%; height: 700px;"></div>
+        <div class="e-chart-box">
+          <div id="line-chart"></div>
+          <div id="bar-chart"></div>
         </div>
 
       </el-main>
@@ -60,7 +60,7 @@ export default {
       onlineServerList: [], // 在线客服列表
       countSession: 0, // 在线会话数
       serverToCustomers: [], // 客服-访客会话映射
-      converSationSate: {},// 客服咨询统计折线图数据
+      converSationSate: {}, // 客服咨询统计折线图数据
       stateList: [], // 客服咨询统计折线图数据
       dateString: []
     }
@@ -207,5 +207,30 @@ export default {
 /* 可以在这里添加CSS样式 */
 .demonstration {
 
+}
+
+.e-chart-box {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 20px;
+}
+
+#line-chart {
+  padding: 12px;
+  box-sizing: border-box;
+  width: 45%;
+  height: 700px;
+  /*border: 1px solid red;*/
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
+}
+
+#bar-chart {
+  /*border: 1px solid red;*/
+  width: 45%;
+  height: 700px;
+  padding: 12px;
+  box-sizing: border-box;
+  /*width: 40%; height: 700px;*/
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
 }
 </style>
