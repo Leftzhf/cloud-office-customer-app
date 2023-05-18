@@ -109,19 +109,20 @@
                       >
                     </div>
                     <!--音频-->
-                    <div v-else-if="message.type == 3" class="audio-container">
+                    <div v-else-if="message.type == 3" class="text">
                       <audio
                         :src="message.content"
+                        class="audio-card"
                         controls
                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       />
                     </div>
                     <!--视频-->
-                    <div v-else-if="message.type == 4" class="video-container">
+                    <div v-else-if="message.type == 4" class="text">
                       <video
                         :src="message.content"
                         controls
-                        style="width: 20%"
+                        class="video-card"
                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       />
                     </div>
@@ -836,7 +837,7 @@ export default {
       console.log(`发送信息:${this.url}`)
       const data = {
         conversationId: this.conversationId,
-        content: this.url,
+        content: Encrypt(this.url, this.secretKey),
         type: type,
         toUserId: this.contact.id
       }
@@ -934,9 +935,10 @@ export default {
   margin-bottom: 20px;
 }
 
-audio {
-  width: 100%;
+.audio-card {
+  width: 250px;
   height: 50px;
+
 }
 
 .video-container {
@@ -945,10 +947,9 @@ audio {
   overflow: hidden;
 }
 
-video {
+.video-card {
   width: 100%;
-  height: auto;
-  display: block;
+
 }
 
 .input-container {
