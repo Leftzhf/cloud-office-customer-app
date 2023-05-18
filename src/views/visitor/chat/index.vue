@@ -490,8 +490,6 @@ export default {
       const _this = this
       this.conversationDialogVisible = false
       console.log(`关闭会话！`)
-      // 关闭websocket
-      this.socket.close()
       // 调接口设置会话状态为已结束
       conversationApi.updateConversationEnd(this.conversationId).then(res => {
         if (res.status == 200) {
@@ -500,6 +498,8 @@ export default {
           // 设置会话状态为已结束
           _this.conversationStatus = 0
           console.log(`会话${_this.conversationId}已结束!`)
+          // 关闭websocket
+          this.socket.close()
         }
       })
       // 弹出评价窗口
@@ -626,6 +626,8 @@ export default {
         console.log(`提交反馈数据成功${JSON.stringify(response)}`)
         this.rateDialogVisible = false
       })
+      // 刷新浏览器
+      window.location.reload()
     },
     parseTime(time, cFormat) {
       return parseTime(time, cFormat)

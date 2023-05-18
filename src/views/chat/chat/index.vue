@@ -187,6 +187,7 @@ import ContextMenu from '@/components/common/ContextMenu'
 import COS from 'cos-js-sdk-v5'
 import { Decrypt, Encrypt } from '@/utils/AesEncryptUtil'
 import { Picker } from 'emoji-mart-vue'
+import { removeId } from '@/utils/id'
 
 export default {
   components: {
@@ -357,9 +358,10 @@ export default {
       const _this = this
       console.log(`结束会话 ${this.conversation.status}`)
       const id = this.conversation.id
-      //会话接口结束状态
+      // 会话接口结束状态
       conversationApi.updateConversationEnd(id).then(res => {
         if (res.status === 200) {
+          // 从会话list中移除这个会话
           _this.conversationList.splice(_this.conversationList.findIndex((item) => item.id === id), 1)
           // 移除之后页面恢复到暂时没有消息状态
           _this.conversation = null
@@ -668,8 +670,20 @@ export default {
       // 会话创建通知回调
       this.eventDispatcher.addListener(Command.CREATE_CONVERSATION_RESPONSE, packet => {
         console.log(`收到创建会话通知 ${JSON.stringify(packet)}`)
-         // 加入会话列表
+        // 加入会话列表
         this.conversationList.push(packet.conversation)
+      })
+      // 结束会话通知回调
+      this.eventDispatcher.addListener(Command.END_CONVERSATION_RESPONSE, packet => {
+        console.log(`结束会话通知 ${JSON.stringify(packet)}`)
+        if (packet.success) {
+          const id = packet.conversationId
+          // 从会话list中移除这个会话
+          _this.conversationList.splice(_this.conversationList.findIndex((item) => item.id === id), 1)
+          // 移除之后会话页面恢复到暂时没有消息状态
+          _this.conversation = null
+          console.log('会话结束状态更新成功')
+        }
       })
     },
     // 心跳检测
