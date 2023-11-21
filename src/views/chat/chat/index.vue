@@ -204,8 +204,8 @@ export default {
       url: '',
       file: null,
       cos: null,
-      bucket: 'customer-1312794111', // 替换为您自己的存储桶名称
-      region: 'ap-nanjing', // 替换为您自己的存储桶所在的地域
+      bucket: 'xxxxxxxxxxxx', // 替换为您自己的存储桶名称
+      region: 'xxxxxxxxxx', // 替换为您自己的存储桶所在的地域
       conversationStatus: 1,
       recallMessageDto: {
         messageId: 0,
