@@ -109,19 +109,20 @@
                       >
                     </div>
                     <!--音频-->
-                    <div v-else-if="message.type == 3" class="audio-container">
+                    <div v-else-if="message.type == 3" class="text">
                       <audio
                         :src="message.content"
+                        class="audio-card"
                         controls
                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       />
                     </div>
                     <!--视频-->
-                    <div v-else-if="message.type == 4" class="video-container">
+                    <div v-else-if="message.type == 4" class="text">
                       <video
                         :src="message.content"
                         controls
-                        style="width: 20%"
+                        class="video-card"
                         @contextmenu.prevent="isOneself(message) &&showContextMenu($event, message,index)"
                       />
                     </div>
@@ -490,8 +491,6 @@ export default {
       const _this = this
       this.conversationDialogVisible = false
       console.log(`关闭会话！`)
-      // 关闭websocket
-      this.socket.close()
       // 调接口设置会话状态为已结束
       conversationApi.updateConversationEnd(this.conversationId).then(res => {
         if (res.status == 200) {
@@ -500,6 +499,8 @@ export default {
           // 设置会话状态为已结束
           _this.conversationStatus = 0
           console.log(`会话${_this.conversationId}已结束!`)
+          // 关闭websocket
+          this.socket.close()
         }
       })
       // 弹出评价窗口
@@ -626,6 +627,8 @@ export default {
         console.log(`提交反馈数据成功${JSON.stringify(response)}`)
         this.rateDialogVisible = false
       })
+      // 刷新浏览器
+      window.location.reload()
     },
     parseTime(time, cFormat) {
       return parseTime(time, cFormat)
@@ -834,7 +837,7 @@ export default {
       console.log(`发送信息:${this.url}`)
       const data = {
         conversationId: this.conversationId,
-        content: this.url,
+        content: Encrypt(this.url, this.secretKey),
         type: type,
         toUserId: this.contact.id
       }
@@ -932,9 +935,10 @@ export default {
   margin-bottom: 20px;
 }
 
-audio {
-  width: 100%;
+.audio-card {
+  width: 250px;
   height: 50px;
+
 }
 
 .video-container {
@@ -943,10 +947,9 @@ audio {
   overflow: hidden;
 }
 
-video {
+.video-card {
   width: 100%;
-  height: auto;
-  display: block;
+
 }
 
 .input-container {
